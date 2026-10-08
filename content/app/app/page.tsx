@@ -28,9 +28,11 @@ import {
   getStoredGoalProfile,
   getStoredRestaurantProfile,
 } from "@/lib/onboarding-store";
+import { GapAnalysisResult } from "@/lib/gap-analyzer";
 
 export default function AppHomePage() {
   const [assets, setAssets] = React.useState<ContentAsset[]>([]);
+  const [gapAnalysis, setGapAnalysis] = React.useState<GapAnalysisResult | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [restaurantProfile, setRestaurantProfile] = React.useState<any>(null);
   const [goalProfile, setGoalProfile] = React.useState<any>(null);
@@ -42,23 +44,32 @@ export default function AppHomePage() {
     setRestaurantProfile(profile);
     setGoalProfile(goal);
 
-    // Fetch live asset counts from Content API
-    async function fetchAssets() {
+    // Fetch live asset counts and gap analysis
+    async function fetchData() {
       try {
         setIsLoading(true);
-        const res = await fetch(`/api/content/assets?restaurantId=${BENCHMARK_RESTAURANT.id}`);
-        const data = await res.json();
-        if (data.success && data.assets) {
-          setAssets(data.assets);
+        const [assetsRes, gapRes] = await Promise.all([
+          fetch(`/api/content/assets?restaurantId=${BENCHMARK_RESTAURANT.id}`),
+          fetch(`/api/strategy/gap-analysis?restaurantId=${BENCHMARK_RESTAURANT.id}`),
+        ]);
+
+        const assetsData = await assetsRes.json();
+        if (assetsData.success && assetsData.assets) {
+          setAssets(assetsData.assets);
+        }
+
+        const gapData = await gapRes.json();
+        if (gapData.success && gapData.analysis) {
+          setGapAnalysis(gapData.analysis);
         }
       } catch (err) {
-        console.error("Failed to fetch assets for dashboard:", err);
+        console.error("Failed to fetch dashboard data:", err);
       } finally {
         setIsLoading(false);
       }
     }
 
-    fetchAssets();
+    fetchData();
   }, []);
 
   const restaurantName = restaurantProfile?.name || BENCHMARK_RESTAURANT.name;
@@ -219,20 +230,36 @@ export default function AppHomePage() {
                 <span className="uppercase">PILLAR BALANCE AUDIT</span>
                 <ShieldAlert className="w-3.5 h-3.5 text-zinc-400" />
               </div>
-              <div className="text-base font-bold text-white font-sans flex items-center gap-1.5">
-                <span>Social Proof Deficit</span>
-                <Badge variant="outline" className="border-zinc-600 text-zinc-300 text-[9px] uppercase ml-1">
-                  14% Share
+              <div className="text-base font-bold text-white font-sans flex items-center justify-between">
+                <span className="truncate pr-2">
+                  {gapAnalysis?.identifiedGaps[0]?.title || "Pillars Evaluated"}
+                </span>
+                <Badge
+                  variant="outline"
+                  className={`text-[9px] uppercase shrink-0 font-mono ${
+                    gapAnalysis?.status === "ready"
+                      ? "border-emerald-600 text-emerald-300"
+                      : gapAnalysis?.status === "critical_gaps"
+                      ? "border-amber-600 text-amber-300"
+                      : "border-zinc-600 text-zinc-300"
+                  }`}
+                >
+                  {gapAnalysis ? `${gapAnalysis.readinessScore}% Readiness` : "Auditing..."}
                 </Badge>
               </div>
-              <p className="text-[11px] text-zinc-400 font-sans leading-relaxed">
-                Your library is heavy on menu dish photos but lacks customer reviews or clean-plate reactions to close first-time lunch orders.
+              <p className="text-[11px] text-zinc-400 font-sans leading-relaxed line-clamp-3">
+                {gapAnalysis?.headlineDiagnostic ||
+                  "Auditing available media against your weekly revenue goal."}
               </p>
             </div>
             <div className="border-t border-zinc-900 pt-3 flex items-center justify-between">
-              <span className="text-[10px] text-zinc-500">Need: 2 review clips</span>
-              <Link href="/app/strategy" className="text-white hover:underline text-[11px]">
-                Inspect Deficit &rarr;
+              <span className="text-[10px] text-zinc-400 truncate max-w-[190px]">
+                {gapAnalysis?.recommendedShootList[0]
+                  ? `Shoot: ${gapAnalysis.recommendedShootList[0].title}`
+                  : "All core pillars covered"}
+              </span>
+              <Link href="/app/strategy" className="text-white hover:underline text-[11px] shrink-0 font-mono">
+                Inspect Gaps &rarr;
               </Link>
             </div>
           </div>
