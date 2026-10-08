@@ -267,6 +267,18 @@ interface StrategyPlanItem {
 * Maintains a healthy mix of pillars across the 7 days (e.g., avoids 5 consecutive product discounts).
 * Tailors post timing to local dining rhythms (lunch prep, evening relaxation, weekend specials).
 
+### Phase 6 Implementation & Completion Verification
+* **Core Engine (`lib/strategy-engine.ts`)**: Synthesizes restaurant context, active business goal, analyzed media assets, and Phase 5 gap deficits into a dynamic 7-day schedule (Monday to Sunday).
+* **Asset Pairing Intelligence**: Automatically matches library assets to designated daily pillars and objectives; for deficit days, generates high-leverage smartphone filming briefs (`ContentToCreateBrief`).
+* **Commercial Rationale**: Every day provides an explicit commercial justification explaining why this post runs at this time for this goal.
+* **Storage & Persistence (`lib/strategy-repository.ts`)**: Persists plans to Supabase tables (`content_plans`, `content_plan_items`) with `.dev-plans.json` local disk mirror.
+* **API Endpoints**:
+  * `POST /api/strategy/generate`: Generates and persists the 7-day plan.
+  * `GET /api/strategy/generate`: Retrieves or auto-seeds the active plan.
+  * `PATCH /api/strategy/item`: Granular update and approval of daily items.
+* **UI Workspace (`/app/strategy`)**: Interactive calendar schedule board, day selector with footage vs filming tags, side-by-side Instagram/TikTok drawers, and approval actions.
+* **Pure Lucide Icons Only**: Strictly zero emojis and zero sparkles.
+
 ---
 
 # 10. Phase 7 — Platform Adaptation, Editing & Export

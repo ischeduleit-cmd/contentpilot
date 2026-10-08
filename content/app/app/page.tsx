@@ -37,6 +37,8 @@ export default function AppHomePage() {
   const [restaurantProfile, setRestaurantProfile] = React.useState<any>(null);
   const [goalProfile, setGoalProfile] = React.useState<any>(null);
 
+  const [planItems, setPlanItems] = React.useState<any[]>(BENCHMARK_WEEKLY_PLAN);
+
   React.useEffect(() => {
     // Load local workspace overrides if present
     const profile = getStoredRestaurantProfile();
@@ -44,13 +46,14 @@ export default function AppHomePage() {
     setRestaurantProfile(profile);
     setGoalProfile(goal);
 
-    // Fetch live asset counts and gap analysis
+    // Fetch live asset counts, gap analysis, and strategy
     async function fetchData() {
       try {
         setIsLoading(true);
-        const [assetsRes, gapRes] = await Promise.all([
+        const [assetsRes, gapRes, strategyRes] = await Promise.all([
           fetch(`/api/content/assets?restaurantId=${BENCHMARK_RESTAURANT.id}`),
           fetch(`/api/strategy/gap-analysis?restaurantId=${BENCHMARK_RESTAURANT.id}`),
+          fetch(`/api/strategy/generate?restaurantId=${BENCHMARK_RESTAURANT.id}`),
         ]);
 
         const assetsData = await assetsRes.json();
@@ -61,6 +64,11 @@ export default function AppHomePage() {
         const gapData = await gapRes.json();
         if (gapData.success && gapData.analysis) {
           setGapAnalysis(gapData.analysis);
+        }
+
+        const strategyData = await strategyRes.json();
+        if (strategyData.success && strategyData.items && strategyData.items.length > 0) {
+          setPlanItems(strategyData.items);
         }
       } catch (err) {
         console.error("Failed to fetch dashboard data:", err);
@@ -285,29 +293,39 @@ export default function AppHomePage() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
-            {BENCHMARK_WEEKLY_PLAN.map((day, idx) => (
-              <div
-                key={day.id}
-                className={`p-3 border flex flex-col justify-between space-y-2 ${
-                  idx === 0
-                    ? "border-white bg-black"
-                    : "border-zinc-800 bg-black/60"
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between text-[10px] pb-1 border-b border-zinc-900">
-                    <span className="font-bold text-white">{day.dayOfWeek.slice(0, 3)}</span>
-                    <span className="text-zinc-500">{day.recommendedTime.split(" ")[0]}</span>
+            {planItems.map((day, idx) => {
+              const hasAsset = !!day.assetId;
+              return (
+                <div
+                  key={day.id || idx}
+                  className={`p-3 border flex flex-col justify-between space-y-2 ${
+                    idx === 0
+                      ? "border-white bg-black"
+                      : "border-zinc-800 bg-black/60"
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between text-[10px] pb-1 border-b border-zinc-900">
+                      <span className="font-bold text-white">{day.dayOfWeek ? day.dayOfWeek.slice(0, 3) : "Day"}</span>
+                      <span className="text-zinc-500">{day.recommendedTime ? day.recommendedTime.split(" ")[0] : "11:30"}</span>
+                    </div>
+                    <div className="text-[11px] text-zinc-300 font-sans font-medium line-clamp-2 pt-2">
+                      {day.contentAngle || day.instagramHook}
+                    </div>
                   </div>
-                  <div className="text-[11px] text-zinc-300 font-sans font-medium line-clamp-2 pt-2">
-                    {day.contentAngle}
+                  <div className="pt-2 border-t border-zinc-900 flex items-center justify-between text-[9px] font-mono">
+                    <span className="uppercase text-zinc-500 truncate max-w-[65px]">
+                      {day.contentPillar?.replace(/_/g, " ")}
+                    </span>
+                    {hasAsset ? (
+                      <span className="text-emerald-400">Media OK</span>
+                    ) : (
+                      <span className="text-amber-400">Filming</span>
+                    )}
                   </div>
                 </div>
-                <div className="text-[9px] uppercase tracking-wide text-zinc-500 pt-1">
-                  {day.contentPillar}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
