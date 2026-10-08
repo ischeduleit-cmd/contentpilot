@@ -200,7 +200,7 @@ export default function AppHomePage() {
                 </span>
               </div>
               <p className="text-[11px] text-zinc-400 font-sans leading-relaxed">
-                Persisted in private Supabase Storage. AI maps these into your weekly schedule based on culinary scenes.
+                Your camera roll organized and ready to publish. Every dish and prep clip powers your 7-day conversion schedule.
               </p>
             </div>
             <div className="border-t border-zinc-900 pt-3 flex items-center justify-between">
