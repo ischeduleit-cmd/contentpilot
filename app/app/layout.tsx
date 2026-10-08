@@ -11,7 +11,6 @@ import {
   Store,
   LogOut,
   ChevronRight,
-  Sparkles,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 

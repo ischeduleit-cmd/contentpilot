@@ -9,7 +9,8 @@ import {
   Play,
   AlertCircle,
   RefreshCw,
-  Sparkles,
+  Scan,
+  Sliders,
   CheckCircle2,
   Clock,
   AlertTriangle,
@@ -446,7 +447,7 @@ export default function AppContentPage() {
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <Scan className="w-4 h-4 text-zinc-300" />
                   <span>Analyze Library {pendingCount > 0 ? `(${pendingCount})` : ""}</span>
                 </>
               )}
@@ -715,9 +716,9 @@ export default function AppContentPage() {
                           <button
                             onClick={() => handleSingleAnalyze(asset.id)}
                             disabled={isAnalyzing}
-                            className="text-amber-400 hover:text-amber-300 font-mono text-[10px] flex items-center gap-1 transition-colors disabled:opacity-50"
+                            className="text-zinc-300 hover:text-white font-mono text-[10px] flex items-center gap-1 transition-colors disabled:opacity-50"
                           >
-                            <Sparkles className="w-3 h-3" />
+                            <Scan className="w-3 h-3 text-zinc-400" />
                             <span>Analyze</span>
                           </button>
                         )}
@@ -922,9 +923,9 @@ export default function AppContentPage() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between border-b border-zinc-800 pb-2.5">
                     <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-amber-400" />
+                      <Sliders className="w-4 h-4 text-zinc-300" />
                       <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-white">
-                        AI Content Analysis &amp; Strategy Tags
+                        Content Analysis &amp; Strategy Tags
                       </h4>
                     </div>
                     <Button
@@ -934,11 +935,7 @@ export default function AppContentPage() {
                       onClick={() => handleSingleAnalyze(previewAsset.id)}
                       className="text-[11px] font-mono h-7 gap-1.5 border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-900"
                     >
-                      {analyzingAssetId === previewAsset.id ? (
-                        <RefreshCw className="w-3 h-3 animate-spin text-zinc-400" />
-                      ) : (
-                        <Sparkles className="w-3 h-3 text-amber-400" />
-                      )}
+                      <RefreshCw className={`w-3 h-3 text-zinc-300 ${analyzingAssetId === previewAsset.id ? "animate-spin" : ""}`} />
                       <span>Re-analyze</span>
                     </Button>
                   </div>

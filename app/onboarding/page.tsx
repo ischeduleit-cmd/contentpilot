@@ -9,7 +9,6 @@ import {
   Users,
   Send,
   ArrowRight,
-  Sparkles,
   RotateCcw,
   CheckCircle2,
   Building2,

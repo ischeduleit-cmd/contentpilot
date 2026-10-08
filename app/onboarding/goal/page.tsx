@@ -10,7 +10,6 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock,
-  Sparkles,
   RotateCcw,
   Building2,
   FileText,
