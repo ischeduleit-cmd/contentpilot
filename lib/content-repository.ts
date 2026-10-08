@@ -72,6 +72,7 @@ export async function listContentAssets(restaurantId: string): Promise<ContentAs
               contentPillar: row.content_pillar,
               objective: row.objective,
               suggestedPlatform: row.suggested_platform,
+              suggestedAngle: row.suggested_angle,
               confidence: Number(row.confidence) || 0.9,
               processingStatus: row.processing_status || "pending",
               createdAt: row.created_at,
@@ -179,7 +180,14 @@ export async function getContentAssetById(id: string, restaurantId: string): Pro
           fileSize: Number(data.file_size) || 0,
           storageKey: data.storage_key,
           uploadStatus: data.upload_status,
-          processingStatus: data.processing_status,
+          aiDescription: data.ai_description,
+          contentType: data.content_type,
+          contentPillar: data.content_pillar,
+          objective: data.objective,
+          suggestedPlatform: data.suggested_platform,
+          suggestedAngle: data.suggested_angle,
+          confidence: Number(data.confidence) || 0.9,
+          processingStatus: data.processing_status || "pending",
           createdAt: data.created_at,
           updatedAt: data.updated_at,
         } as ContentAsset;
@@ -194,6 +202,97 @@ export async function getContentAssetById(id: string, restaurantId: string): Pro
   if (found && found.restaurantId === restaurantId) {
     return found;
   }
+  return null;
+}
+
+/**
+ * Update a content asset record, scoped to restaurantId
+ */
+export async function updateContentAssetRecord(
+  id: string,
+  restaurantId: string,
+  updates: Partial<ContentAsset>
+): Promise<ContentAsset | null> {
+  const supabase = getSupabaseServerClient();
+  const now = new Date().toISOString();
+
+  if (supabase) {
+    try {
+      const dbUpdates: Record<string, any> = {
+        updated_at: now,
+      };
+
+      if (updates.aiDescription !== undefined) dbUpdates.ai_description = updates.aiDescription;
+      if (updates.contentType !== undefined) dbUpdates.content_type = updates.contentType;
+      if (updates.contentPillar !== undefined) dbUpdates.content_pillar = updates.contentPillar;
+      if (updates.objective !== undefined) dbUpdates.objective = updates.objective;
+      if (updates.suggestedPlatform !== undefined) dbUpdates.suggested_platform = updates.suggestedPlatform;
+      if (updates.suggestedAngle !== undefined) dbUpdates.suggested_angle = updates.suggestedAngle;
+      if (updates.confidence !== undefined) dbUpdates.confidence = updates.confidence;
+      if (updates.processingStatus !== undefined) dbUpdates.processing_status = updates.processingStatus;
+      if (updates.uploadStatus !== undefined) dbUpdates.upload_status = updates.uploadStatus;
+
+      const { data, error } = await supabase
+        .from("content_assets")
+        .update(dbUpdates)
+        .eq("id", id)
+        .eq("restaurant_id", restaurantId)
+        .select()
+        .single();
+
+      if (!error && data) {
+        let currentUrl = data.file_url;
+        if (data.storage_key) {
+          const freshSigned = await getAssetSignedUrl(data.storage_key, 7200);
+          if (freshSigned) currentUrl = freshSigned;
+        }
+
+        const updated: ContentAsset = {
+          id: data.id,
+          restaurantId: data.restaurant_id,
+          fileUrl: currentUrl,
+          fileName: data.file_name,
+          mediaType: data.media_type,
+          mimeType: data.mime_type,
+          fileSize: Number(data.file_size) || 0,
+          storageKey: data.storage_key,
+          uploadStatus: data.upload_status,
+          aiDescription: data.ai_description,
+          contentType: data.content_type,
+          contentPillar: data.content_pillar,
+          objective: data.objective,
+          suggestedPlatform: data.suggested_platform,
+          suggestedAngle: data.suggested_angle,
+          confidence: Number(data.confidence) || 0.9,
+          processingStatus: data.processing_status || "pending",
+          createdAt: data.created_at,
+          updatedAt: data.updated_at,
+        };
+
+        const store = readDevAssets();
+        store.set(id, updated);
+        writeDevAssets(store);
+        return updated;
+      }
+    } catch (err) {
+      console.warn("[Content Repository] Supabase update notice:", err);
+    }
+  }
+
+  // Fallback to disk store
+  const store = readDevAssets();
+  const existing = store.get(id);
+  if (existing && existing.restaurantId === restaurantId) {
+    const updated: ContentAsset = {
+      ...existing,
+      ...updates,
+      updatedAt: now,
+    };
+    store.set(id, updated);
+    writeDevAssets(store);
+    return updated;
+  }
+
   return null;
 }
 
