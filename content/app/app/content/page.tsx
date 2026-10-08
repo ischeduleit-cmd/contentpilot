@@ -2,13 +2,34 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Upload, X, Trash2, Play, AlertCircle, RefreshCw } from "lucide-react";
+import {
+  Upload,
+  X,
+  Trash2,
+  Play,
+  AlertCircle,
+  RefreshCw,
+  Sparkles,
+  CheckCircle2,
+  Clock,
+  AlertTriangle,
+  Save,
+  Check,
+  Layers,
+  Target,
+  Share2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ContentAsset } from "@/lib/db/schema";
-import { BENCHMARK_RESTAURANT } from "@/lib/constants";
+import {
+  ContentAsset,
+  ContentPillar,
+  ContentObjective,
+  ProcessingStatus,
+} from "@/lib/db/schema";
+import { BENCHMARK_RESTAURANT, CONTENT_PILLARS } from "@/lib/constants";
+import { PRD_CONTENT_TYPES } from "@/lib/ai-analyzer";
 
-type FilterType = "all" | "photos" | "videos";
+type FilterType = "all" | "photos" | "videos" | "needs_review";
 type SortType = "newest" | "oldest";
 
 interface UploadItem {
@@ -30,12 +51,28 @@ export default function AppContentPage() {
   const [supabaseConfigured, setSupabaseConfigured] = React.useState(true);
   const [missingEnv, setMissingEnv] = React.useState<string[]>([]);
 
+  // AI Analysis states
+  const [isAnalyzingBatch, setIsAnalyzingBatch] = React.useState(false);
+  const [analyzingAssetId, setAnalyzingAssetId] = React.useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = React.useState(false);
+  const [isSavingEdit, setIsSavingEdit] = React.useState(false);
+
   // Modal states
   const [isUploadOpen, setIsUploadOpen] = React.useState(false);
   const [uploadQueue, setUploadQueue] = React.useState<UploadItem[]>([]);
   const [previewAsset, setPreviewAsset] = React.useState<ContentAsset | null>(null);
   const [assetToDelete, setAssetToDelete] = React.useState<ContentAsset | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
+
+  // Editable Form for Preview Asset (Human-in-the-Loop)
+  const [editForm, setEditForm] = React.useState({
+    aiDescription: "",
+    contentType: "Food/product",
+    contentPillar: "product" as ContentPillar,
+    objective: "conversion" as ContentObjective,
+    suggestedPlatform: "both" as "instagram" | "tiktok" | "both",
+    suggestedAngle: "",
+  });
 
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -63,7 +100,22 @@ export default function AppContentPage() {
     loadAssets();
   }, [loadAssets]);
 
-  // Statistics calculation
+  // Sync preview asset to editable form
+  React.useEffect(() => {
+    if (previewAsset) {
+      setEditForm({
+        aiDescription: previewAsset.aiDescription || "",
+        contentType: previewAsset.contentType || "Food/product",
+        contentPillar: (previewAsset.contentPillar as ContentPillar) || "product",
+        objective: (previewAsset.objective as ContentObjective) || "conversion",
+        suggestedPlatform: (previewAsset.suggestedPlatform as "instagram" | "tiktok" | "both") || "both",
+        suggestedAngle: previewAsset.suggestedAngle || "",
+      });
+      setSaveSuccess(false);
+    }
+  }, [previewAsset]);
+
+  // Counts and stats
   const photosCount = React.useMemo(() => {
     return assets.filter(
       (a) => a.mediaType === "image" || a.mimeType?.startsWith("image/")
@@ -74,6 +126,16 @@ export default function AppContentPage() {
     return assets.filter(
       (a) => a.mediaType === "video" || a.mimeType?.startsWith("video/")
     ).length;
+  }, [assets]);
+
+  const pendingCount = React.useMemo(() => {
+    return assets.filter(
+      (a) => a.processingStatus === "pending" || a.processingStatus === "failed" || !a.aiDescription
+    ).length;
+  }, [assets]);
+
+  const needsReviewCount = React.useMemo(() => {
+    return assets.filter((a) => a.processingStatus === "needs_review").length;
   }, [assets]);
 
   // Filtering & Sorting
@@ -88,6 +150,8 @@ export default function AppContentPage() {
       result = result.filter(
         (a) => a.mediaType === "video" || a.mimeType?.startsWith("video/")
       );
+    } else if (filter === "needs_review") {
+      result = result.filter((a) => a.processingStatus === "needs_review");
     }
 
     result.sort((a, b) => {
@@ -98,6 +162,90 @@ export default function AppContentPage() {
 
     return result;
   }, [assets, filter, sort]);
+
+  // Execute Batch AI Analysis
+  const handleBatchAnalyze = async () => {
+    try {
+      setIsAnalyzingBatch(true);
+      const res = await fetch("/api/content/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          restaurantId: BENCHMARK_RESTAURANT.id,
+          allPending: true,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await loadAssets();
+      }
+    } catch (err) {
+      console.error("Batch AI analysis failed:", err);
+    } finally {
+      setIsAnalyzingBatch(false);
+    }
+  };
+
+  // Execute Single Asset AI Analysis
+  const handleSingleAnalyze = async (assetId: string) => {
+    try {
+      setAnalyzingAssetId(assetId);
+      const res = await fetch("/api/content/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          restaurantId: BENCHMARK_RESTAURANT.id,
+          assetId,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.assets?.[0]) {
+        const updated = data.assets[0];
+        setAssets((prev) => prev.map((a) => (a.id === assetId ? updated : a)));
+        if (previewAsset?.id === assetId) {
+          setPreviewAsset(updated);
+        }
+      }
+    } catch (err) {
+      console.error("Single AI analysis failed:", err);
+    } finally {
+      setAnalyzingAssetId(null);
+    }
+  };
+
+  // Save Human Edits to Asset (Human-in-the-Loop)
+  const handleSaveEdits = async () => {
+    if (!previewAsset) return;
+    try {
+      setIsSavingEdit(true);
+      const res = await fetch(`/api/content/assets/${previewAsset.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          restaurantId: BENCHMARK_RESTAURANT.id,
+          aiDescription: editForm.aiDescription,
+          contentType: editForm.contentType,
+          contentPillar: editForm.contentPillar,
+          objective: editForm.objective,
+          suggestedPlatform: editForm.suggestedPlatform,
+          suggestedAngle: editForm.suggestedAngle,
+          processingStatus: "analyzed", // Manual review marks as analyzed
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.asset) {
+        const updated = data.asset;
+        setAssets((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+        setPreviewAsset(updated);
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      }
+    } catch (err) {
+      console.error("Failed to save edits:", err);
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
 
   // Handle file uploads
   const handleFilesSelected = (files: FileList | null) => {
@@ -114,8 +262,6 @@ export default function AppContentPage() {
     }));
 
     setUploadQueue((prev) => [...prev, ...newItems]);
-
-    // Upload each file
     newItems.forEach((item) => executeUpload(item));
   };
 
@@ -209,6 +355,53 @@ export default function AppContentPage() {
     }
   };
 
+  const renderStatusBadge = (asset: ContentAsset) => {
+    const isAnalyzing = analyzingAssetId === asset.id || asset.processingStatus === "analyzing";
+    if (isAnalyzing) {
+      return (
+        <span className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 bg-blue-950/80 border border-blue-800 text-blue-300">
+          <RefreshCw className="w-2.5 h-2.5 animate-spin" />
+          <span>Analyzing</span>
+        </span>
+      );
+    }
+
+    if (asset.processingStatus === "analyzed" || (asset.aiDescription && asset.processingStatus !== "needs_review" && asset.processingStatus !== "failed")) {
+      const pct = Math.round((asset.confidence || 0.9) * 100);
+      return (
+        <span className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 bg-emerald-950/70 border border-emerald-800 text-emerald-300">
+          <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+          <span>Analyzed &middot; {pct}%</span>
+        </span>
+      );
+    }
+
+    if (asset.processingStatus === "needs_review") {
+      return (
+        <span className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 bg-amber-950/80 border border-amber-700 text-amber-300">
+          <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />
+          <span>Needs Review</span>
+        </span>
+      );
+    }
+
+    if (asset.processingStatus === "failed") {
+      return (
+        <span className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 bg-red-950/80 border border-red-800 text-red-300">
+          <AlertCircle className="w-2.5 h-2.5 text-red-400" />
+          <span>Failed</span>
+        </span>
+      );
+    }
+
+    return (
+      <span className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 bg-zinc-900 border border-zinc-700 text-zinc-400">
+        <Clock className="w-2.5 h-2.5 text-zinc-500" />
+        <span>Pending</span>
+      </span>
+    );
+  };
+
   return (
     <div className="flex-1 flex flex-col bg-black text-white min-h-[calc(100vh-3.5rem)] font-sans">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 w-full space-y-8">
@@ -219,16 +412,47 @@ export default function AppContentPage() {
               Your Content
             </h1>
             <p className="text-sm text-zinc-400 max-w-2xl leading-relaxed">
-              Upload the photos and videos you already have. We&apos;ll help you turn them into a strategic content plan.
+              Upload the photos and videos you already have. ContentPilot understands your available footage, visual pillars, and marketing hooks.
             </p>
             {assets.length > 0 && (
-              <div className="text-xs font-mono text-zinc-400 pt-1">
-                {assets.length} {assets.length === 1 ? "asset" : "assets"} &middot; {photosCount} {photosCount === 1 ? "photo" : "photos"} &middot; {videosCount} {videosCount === 1 ? "video" : "videos"}
+              <div className="text-xs font-mono text-zinc-400 pt-1 flex flex-wrap items-center gap-2">
+                <span>{assets.length} {assets.length === 1 ? "asset" : "assets"}</span>
+                <span>&middot;</span>
+                <span>{photosCount} photos</span>
+                <span>&middot;</span>
+                <span>{videosCount} videos</span>
+                {needsReviewCount > 0 && (
+                  <>
+                    <span>&middot;</span>
+                    <span className="text-amber-400 font-semibold">{needsReviewCount} needs review</span>
+                  </>
+                )}
               </div>
             )}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Batch AI Analysis Trigger */}
+            <Button
+              variant="outline"
+              disabled={isAnalyzingBatch || assets.length === 0}
+              onClick={handleBatchAnalyze}
+              className="font-mono text-xs gap-2 border-zinc-700 text-zinc-200 hover:text-white hover:bg-zinc-900"
+            >
+              {isAnalyzingBatch ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin text-zinc-400" />
+                  <span>Analyzing Library...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <span>Analyze Library {pendingCount > 0 ? `(${pendingCount})` : ""}</span>
+                </>
+              )}
+            </Button>
+
+            {/* Upload Button */}
             <Button
               variant="default"
               onClick={() => setIsUploadOpen(true)}
@@ -248,15 +472,7 @@ export default function AppContentPage() {
               <span>Supabase Storage Integration</span>
             </div>
             <p className="text-[11px] text-zinc-400 leading-relaxed font-sans">
-              To connect directly to the <strong>ischeduleit-cmd</strong> Supabase project bucket, set the following environment variables in <code>.env.local</code>:
-            </p>
-            <div className="bg-black p-2.5 border border-zinc-800 text-[11px] text-zinc-300 space-y-1">
-              <div>NEXT_PUBLIC_SUPABASE_URL=&quot;https://your-project.supabase.co&quot;</div>
-              <div>NEXT_PUBLIC_SUPABASE_ANON_KEY=&quot;ey...&quot;</div>
-              <div>SUPABASE_SERVICE_ROLE_KEY=&quot;ey...&quot;</div>
-            </div>
-            <p className="text-[10px] text-zinc-500">
-              Files uploaded locally are stored in the development session registry until Supabase keys are active.
+              Connected to <strong>ischeduleit-cmd</strong> Supabase project. Local fallback store is active for offline development.
             </p>
           </div>
         )}
@@ -296,6 +512,18 @@ export default function AppContentPage() {
               >
                 Videos ({videosCount})
               </button>
+              {needsReviewCount > 0 && (
+                <button
+                  onClick={() => setFilter("needs_review")}
+                  className={`px-3 py-1 transition-colors ${
+                    filter === "needs_review"
+                      ? "bg-amber-400 text-black font-semibold"
+                      : "text-amber-400 hover:text-amber-300"
+                  }`}
+                >
+                  Needs Review ({needsReviewCount})
+                </button>
+              )}
             </div>
 
             {/* Sorting */}
@@ -334,21 +562,35 @@ export default function AppContentPage() {
         ) : filteredAssets.length === 0 ? (
           <div className="border border-zinc-800 bg-zinc-950 p-12 text-center space-y-4">
             <h2 className="text-xl font-bold text-white">
-              Your content library is empty
+              {filter === "needs_review"
+                ? "No assets currently require review"
+                : "Your content library is empty"}
             </h2>
             <p className="text-sm text-zinc-400 max-w-md mx-auto leading-relaxed">
-              Upload the photos and videos already on your phone. You don&apos;t need to create anything new yet.
+              {filter === "needs_review"
+                ? "All uploaded assets have been successfully analyzed with high confidence."
+                : "Upload the photos and videos already on your phone. You don't need to create anything new yet."}
             </p>
-            <div className="pt-2">
+            {filter === "needs_review" ? (
               <Button
-                variant="default"
-                onClick={() => setIsUploadOpen(true)}
-                className="font-mono text-xs gap-2"
+                variant="outline"
+                onClick={() => setFilter("all")}
+                className="font-mono text-xs"
               >
-                <Upload className="w-4 h-4" />
-                <span>Upload Content</span>
+                Show All Assets
               </Button>
-            </div>
+            ) : (
+              <div className="pt-2">
+                <Button
+                  variant="default"
+                  onClick={() => setIsUploadOpen(true)}
+                  className="font-mono text-xs gap-2"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>Upload Content</span>
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           /* Grid View */
@@ -356,6 +598,7 @@ export default function AppContentPage() {
             {filteredAssets.map((asset) => {
               const isVideo =
                 asset.mediaType === "video" || asset.mimeType?.startsWith("video/");
+              const isAnalyzing = analyzingAssetId === asset.id;
 
               return (
                 <div
@@ -389,36 +632,105 @@ export default function AppContentPage() {
                       />
                     )}
 
-                    {/* Media Type Badge */}
-                    <div className="absolute top-2 left-2">
+                    {/* Top Badges: Media Type & Analysis Status */}
+                    <div className="absolute top-2 left-2 flex items-center gap-1.5">
                       <span className="font-mono text-[10px] uppercase px-1.5 py-0.5 bg-black/80 border border-zinc-800 text-zinc-300 backdrop-blur-xs">
                         {isVideo ? "Video" : "Photo"}
                       </span>
                     </div>
-                  </div>
 
-                  {/* Card Meta & Controls */}
-                  <div className="p-3 space-y-2 border-t border-zinc-900 font-mono text-xs">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="truncate font-sans font-medium text-white text-xs" title={asset.fileName}>
-                        {asset.fileName}
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setAssetToDelete(asset);
-                        }}
-                        className="text-zinc-500 hover:text-red-400 transition-colors p-0.5"
-                        title="Delete asset"
-                        aria-label="Delete asset"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                    <div className="absolute top-2 right-2">
+                      {renderStatusBadge(asset)}
                     </div>
 
-                    <div className="flex items-center justify-between text-[11px] text-zinc-500">
+                    {/* Platform Tag */}
+                    {asset.suggestedPlatform && (
+                      <div className="absolute bottom-2 left-2">
+                        <span className="font-mono text-[9px] uppercase px-1.5 py-0.5 bg-black/90 border border-zinc-800 text-zinc-300">
+                          {asset.suggestedPlatform}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Card Meta & Strategic Intelligence */}
+                  <div className="p-3 space-y-2.5 border-t border-zinc-900 font-mono text-xs flex-1 flex flex-col justify-between">
+                    <div className="space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div
+                          className="truncate font-sans font-medium text-white text-xs cursor-pointer hover:underline"
+                          title={asset.fileName}
+                          onClick={() => setPreviewAsset(asset)}
+                        >
+                          {asset.fileName}
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAssetToDelete(asset);
+                          }}
+                          className="text-zinc-500 hover:text-red-400 transition-colors p-0.5"
+                          title="Delete asset"
+                          aria-label="Delete asset"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* AI Description Snippet */}
+                      {asset.aiDescription ? (
+                        <p
+                          className="text-[11px] font-sans text-zinc-400 line-clamp-2 leading-relaxed cursor-pointer"
+                          onClick={() => setPreviewAsset(asset)}
+                        >
+                          {asset.aiDescription}
+                        </p>
+                      ) : (
+                        <p className="text-[11px] font-sans text-zinc-500 italic">
+                          Pending AI marketing analysis...
+                        </p>
+                      )}
+
+                      {/* Content Pillar & Objective Pills */}
+                      {asset.contentPillar && (
+                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                          <span className="text-[10px] px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 text-zinc-300 capitalize">
+                            {asset.contentPillar.replace(/_/g, " ")}
+                          </span>
+                          {asset.objective && (
+                            <span className="text-[10px] px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 text-zinc-400 capitalize">
+                              {asset.objective}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Card Footer: Metadata and Quick Action */}
+                    <div className="pt-2 border-t border-zinc-900 flex items-center justify-between text-[11px] text-zinc-500">
                       <span>{formatFileSize(asset.fileSize)}</span>
-                      <span>{formatDate(asset.createdAt)}</span>
+
+                      <div className="flex items-center gap-2">
+                        {(!asset.aiDescription || asset.processingStatus === "pending" || asset.processingStatus === "failed") && (
+                          <button
+                            onClick={() => handleSingleAnalyze(asset.id)}
+                            disabled={isAnalyzing}
+                            className="text-amber-400 hover:text-amber-300 font-mono text-[10px] flex items-center gap-1 transition-colors disabled:opacity-50"
+                          >
+                            <Sparkles className="w-3 h-3" />
+                            <span>Analyze</span>
+                          </button>
+                        )}
+                        {asset.processingStatus === "needs_review" && (
+                          <button
+                            onClick={() => setPreviewAsset(asset)}
+                            className="text-amber-400 hover:text-amber-300 font-mono text-[10px] flex items-center gap-1 transition-colors"
+                          >
+                            <span>Review</span>
+                          </button>
+                        )}
+                        <span>{formatDate(asset.createdAt)}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -543,16 +855,18 @@ export default function AppContentPage() {
       )}
 
       {/* ---------------------------------------------------- */}
-      {/* CONTENT PREVIEW MODAL */}
+      {/* CONTENT PREVIEW & AI ANALYSIS MODAL (Human-in-the-Loop) */}
       {/* ---------------------------------------------------- */}
       {previewAsset && (
-        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="border border-zinc-800 bg-zinc-950 w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-              <div className="truncate pr-4">
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+          <div className="border border-zinc-800 bg-zinc-950 w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col my-auto max-h-[92vh]">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-zinc-800 bg-zinc-900/50">
+              <div className="flex items-center gap-3 truncate pr-4">
                 <h3 className="text-sm font-bold text-white truncate font-sans">
                   {previewAsset.fileName}
                 </h3>
+                {renderStatusBadge(previewAsset)}
               </div>
               <button
                 onClick={() => setPreviewAsset(null)}
@@ -563,41 +877,233 @@ export default function AppContentPage() {
               </button>
             </div>
 
-            {/* Preview Player / Image Viewer */}
-            <div className="flex-1 bg-black flex items-center justify-center min-h-[300px] overflow-hidden p-2">
-              {previewAsset.mediaType === "video" || previewAsset.mimeType?.startsWith("video/") ? (
-                <video
-                  src={previewAsset.fileUrl}
-                  controls
-                  autoPlay
-                  className="max-h-[60vh] max-w-full object-contain"
-                />
-              ) : (
-                <img
-                  src={previewAsset.fileUrl}
-                  alt={previewAsset.fileName}
-                  className="max-h-[60vh] max-w-full object-contain"
-                />
-              )}
-            </div>
+            {/* Modal Body: Split Media Viewer + AI Intelligence Panel */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 overflow-y-auto">
+              {/* Media Player Column */}
+              <div className="lg:col-span-5 bg-black flex flex-col items-center justify-center p-4 border-b lg:border-b-0 lg:border-r border-zinc-800 min-h-[280px]">
+                {previewAsset.mediaType === "video" || previewAsset.mimeType?.startsWith("video/") ? (
+                  <video
+                    src={previewAsset.fileUrl}
+                    controls
+                    className="max-h-[50vh] max-w-full object-contain shadow-lg"
+                  />
+                ) : (
+                  <img
+                    src={previewAsset.fileUrl}
+                    alt={previewAsset.fileName}
+                    className="max-h-[50vh] max-w-full object-contain shadow-lg"
+                  />
+                )}
 
-            {/* Details Footer */}
-            <div className="p-4 border-t border-zinc-800 grid grid-cols-2 sm:grid-cols-4 gap-4 font-mono text-xs text-zinc-400">
-              <div>
-                <span className="block text-[10px] text-zinc-500 uppercase">File Name</span>
-                <span className="text-white truncate block text-[11px]">{previewAsset.fileName}</span>
+                <div className="w-full mt-4 pt-3 border-t border-zinc-900 grid grid-cols-2 gap-2 font-mono text-[11px] text-zinc-400">
+                  <div>
+                    <span className="text-zinc-500 block uppercase text-[10px]">Format:</span>
+                    <span className="text-zinc-300">{previewAsset.mediaType}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block uppercase text-[10px]">File Size:</span>
+                    <span className="text-zinc-300">{formatFileSize(previewAsset.fileSize)}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block uppercase text-[10px]">Uploaded:</span>
+                    <span className="text-zinc-300">{formatDate(previewAsset.createdAt)}</span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block uppercase text-[10px]">Confidence:</span>
+                    <span className="text-zinc-300">
+                      {previewAsset.confidence ? `${Math.round(previewAsset.confidence * 100)}%` : "N/A"}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <span className="block text-[10px] text-zinc-500 uppercase">File Type</span>
-                <span className="text-white uppercase text-[11px]">{previewAsset.mediaType}</span>
-              </div>
-              <div>
-                <span className="block text-[10px] text-zinc-500 uppercase">File Size</span>
-                <span className="text-white text-[11px]">{formatFileSize(previewAsset.fileSize)}</span>
-              </div>
-              <div>
-                <span className="block text-[10px] text-zinc-500 uppercase">Upload Date</span>
-                <span className="text-white text-[11px]">{formatDate(previewAsset.createdAt)}</span>
+
+              {/* AI Strategic Intelligence Column (Human-in-the-Loop) */}
+              <div className="lg:col-span-7 p-5 space-y-4 bg-zinc-950 flex flex-col justify-between">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-zinc-800 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-400" />
+                      <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-white">
+                        AI Content Analysis &amp; Strategy Tags
+                      </h4>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={analyzingAssetId === previewAsset.id}
+                      onClick={() => handleSingleAnalyze(previewAsset.id)}
+                      className="text-[11px] font-mono h-7 gap-1.5 border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-900"
+                    >
+                      {analyzingAssetId === previewAsset.id ? (
+                        <RefreshCw className="w-3 h-3 animate-spin text-zinc-400" />
+                      ) : (
+                        <Sparkles className="w-3 h-3 text-amber-400" />
+                      )}
+                      <span>Re-analyze</span>
+                    </Button>
+                  </div>
+
+                  {/* Visual Scene Description */}
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-mono uppercase text-zinc-400 block">
+                      Visual Scene Description
+                    </label>
+                    <textarea
+                      value={editForm.aiDescription}
+                      onChange={(e) =>
+                        setEditForm((prev) => ({ ...prev, aiDescription: e.target.value }))
+                      }
+                      rows={3}
+                      placeholder="Describe what is shown in this asset..."
+                      className="w-full bg-black border border-zinc-800 rounded-none p-2.5 text-xs text-white placeholder-zinc-600 focus:outline-hidden focus:border-zinc-500 font-sans"
+                    />
+                  </div>
+
+                  {/* Strategic Classifications Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Content Type */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-mono uppercase text-zinc-400 block">
+                        Content Type
+                      </label>
+                      <select
+                        value={editForm.contentType}
+                        onChange={(e) =>
+                          setEditForm((prev) => ({ ...prev, contentType: e.target.value }))
+                        }
+                        className="w-full bg-black border border-zinc-800 p-2 text-xs text-white focus:outline-hidden focus:border-zinc-500 font-sans"
+                      >
+                        {PRD_CONTENT_TYPES.map((t) => (
+                          <option key={t} value={t} className="bg-zinc-950 text-white">
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Content Pillar */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-mono uppercase text-zinc-400 block">
+                        Content Pillar
+                      </label>
+                      <select
+                        value={editForm.contentPillar}
+                        onChange={(e) =>
+                          setEditForm((prev) => ({
+                            ...prev,
+                            contentPillar: e.target.value as ContentPillar,
+                          }))
+                        }
+                        className="w-full bg-black border border-zinc-800 p-2 text-xs text-white focus:outline-hidden focus:border-zinc-500 font-sans"
+                      >
+                        {CONTENT_PILLARS.map((p) => (
+                          <option key={p.id} value={p.id} className="bg-zinc-950 text-white">
+                            {p.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Marketing Objective */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-mono uppercase text-zinc-400 block">
+                        Marketing Objective
+                      </label>
+                      <select
+                        value={editForm.objective}
+                        onChange={(e) =>
+                          setEditForm((prev) => ({
+                            ...prev,
+                            objective: e.target.value as ContentObjective,
+                          }))
+                        }
+                        className="w-full bg-black border border-zinc-800 p-2 text-xs text-white focus:outline-hidden focus:border-zinc-500 font-sans"
+                      >
+                        <option value="conversion" className="bg-zinc-950 text-white">Conversion (Drive Orders)</option>
+                        <option value="trust" className="bg-zinc-950 text-white">Trust (Social Proof)</option>
+                        <option value="awareness" className="bg-zinc-950 text-white">Awareness (Reach Diners)</option>
+                        <option value="engagement" className="bg-zinc-950 text-white">Engagement (Comments/Shares)</option>
+                        <option value="retention" className="bg-zinc-950 text-white">Retention (Loyalty)</option>
+                      </select>
+                    </div>
+
+                    {/* Suggested Platform */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-mono uppercase text-zinc-400 block">
+                        Suggested Platform
+                      </label>
+                      <select
+                        value={editForm.suggestedPlatform}
+                        onChange={(e) =>
+                          setEditForm((prev) => ({
+                            ...prev,
+                            suggestedPlatform: e.target.value as "instagram" | "tiktok" | "both",
+                          }))
+                        }
+                        className="w-full bg-black border border-zinc-800 p-2 text-xs text-white focus:outline-hidden focus:border-zinc-500 font-sans"
+                      >
+                        <option value="both" className="bg-zinc-950 text-white">Instagram + TikTok (Both)</option>
+                        <option value="instagram" className="bg-zinc-950 text-white">Instagram Only</option>
+                        <option value="tiktok" className="bg-zinc-950 text-white">TikTok Only</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Creative Angle / Marketing Hook */}
+                  <div className="space-y-1.5 pt-1">
+                    <label className="text-[11px] font-mono uppercase text-zinc-400 block">
+                      Recommended Strategic Angle / Hook
+                    </label>
+                    <textarea
+                      value={editForm.suggestedAngle}
+                      onChange={(e) =>
+                        setEditForm((prev) => ({ ...prev, suggestedAngle: e.target.value }))
+                      }
+                      rows={2}
+                      placeholder="Suggested marketing angle for weekly strategy..."
+                      className="w-full bg-black border border-zinc-800 rounded-none p-2.5 text-xs text-white placeholder-zinc-600 focus:outline-hidden focus:border-zinc-500 font-sans"
+                    />
+                  </div>
+                </div>
+
+                {/* Footer Actions */}
+                <div className="pt-4 border-t border-zinc-800 flex items-center justify-between">
+                  <div>
+                    {saveSuccess && (
+                      <span className="text-emerald-400 text-xs font-mono flex items-center gap-1.5">
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Saved to library</span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="secondary"
+                      onClick={() => setPreviewAsset(null)}
+                      className="font-mono text-xs"
+                    >
+                      Close
+                    </Button>
+                    <Button
+                      variant="default"
+                      disabled={isSavingEdit}
+                      onClick={handleSaveEdits}
+                      className="font-mono text-xs gap-1.5"
+                    >
+                      {isSavingEdit ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-3.5 h-3.5" />
+                          <span>Save Changes</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

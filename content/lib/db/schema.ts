@@ -167,7 +167,9 @@ export type ProcessingStatus =
   | "pending"
   | "analyzing"
   | "ready"
+  | "analyzed"
   | "needs_review"
+  | "failed"
   | "error";
 
 export interface ContentAsset {
@@ -185,6 +187,7 @@ export interface ContentAsset {
   contentPillar?: ContentPillar;
   objective?: ContentObjective;
   suggestedPlatform?: "instagram" | "tiktok" | "both";
+  suggestedAngle?: string;
   confidence?: number; // 0.00 to 1.00
   processingStatus: ProcessingStatus;
   createdAt: string;

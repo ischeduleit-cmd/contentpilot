@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
       fileSize,
       storageKey,
       uploadStatus: "uploaded",
-      processingStatus: "ready",
+      processingStatus: "pending",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
