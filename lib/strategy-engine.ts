@@ -462,3 +462,157 @@ function buildDayCopywriting(ctx: CopywritingContext) {
       };
   }
 }
+
+export interface RegenerateDayOptions {
+  dayOfWeek: ContentPlanItem["dayOfWeek"];
+  pillar: ContentPillar;
+  objective: ContentObjective;
+  goal: BusinessGoalType;
+  restaurantName: string;
+  location: string;
+  primaryAction: string;
+  matchedAsset?: ContentAsset | null;
+  contentToCreate?: ContentToCreateBrief | null;
+  time: string;
+  variationIndex?: number;
+}
+
+/**
+ * Regenerates an individual day's strategy with alternative creative angles
+ * while preserving assigned asset and weekly context.
+ */
+export function regenerateDayStrategy(opts: RegenerateDayOptions): {
+  contentAngle: string;
+  strategicRationale: string;
+  instagramHook: string;
+  instagramCaption: string;
+  instagramCta: string;
+  tiktokHook: string;
+  tiktokCaption: string;
+  tiktokCta: string;
+  instagramAdaptation: PlatformAdaptation;
+  tiktokAdaptation: PlatformAdaptation;
+} {
+  const {
+    dayOfWeek,
+    goal,
+    restaurantName,
+    location,
+    matchedAsset,
+    primaryAction,
+    time,
+    variationIndex = 1,
+  } = opts;
+
+  const cta = generateCta(primaryAction, restaurantName);
+
+  // Alternative variations matrix
+  const altCopy: Record<string, {
+    angle: string;
+    rationale: string;
+    igHook: string;
+    igCaption: string;
+    ttHook: string;
+    ttCaption: string;
+  }> = {
+    Monday: {
+      angle: "Executive lunch dispatch: solve midday team hunger with zero delivery delays.",
+      rationale: "Highlighting guaranteed delivery timing before 12:30 PM relieves corporate anxiety and drives group department orders.",
+      igHook: "Never gamble with your Monday lunchtime.",
+      igCaption: matchedAsset?.aiDescription
+        ? `Meetings ran over? Don't settle for lukewarm snacks. Our hot ${matchedAsset.aiDescription.toLowerCase()} ships directly to your office desk in insulated packs.`
+        : `Meetings ran over? Don't settle for cold snacks. Our kitchen dispatches hot, honest food to corporate offices across ${location} within minutes.`,
+      ttHook: "POV: You ordered lunch at 11:30 AM while everyone else is still stressing.",
+      ttCaption: "Work smart, eat better. Smoky jollof delivered on time.",
+    },
+    Tuesday: {
+      angle: "Proof over promises: real diner reviews and clean plate evidence.",
+      rationale: "Social proof converts hesitating customers who need peer verification before committing their lunch budget.",
+      igHook: "The one thing our Tuesday diners always say after the first bite.",
+      igCaption: matchedAsset?.aiDescription
+        ? `We don't need fancy marketing slogans when the food does all the talking. Spotlighting ${matchedAsset.aiDescription.toLowerCase()}. Clean plates every single time.`
+        : `We don't need fancy slogans when empty plates speak louder than words. Fresh, piping-hot meals served daily in ${location}.`,
+      ttHook: "Rating the best corporate lunch spot in town: honest reaction.",
+      ttCaption: "Clean plates, zero leftovers. Tuesday lunch crew approved.",
+    },
+    Wednesday: {
+      angle: "Morning kitchen discipline: fresh market ingredients and traditional slow cooking.",
+      rationale: "Demonstrating morning preparation builds immense culinary credibility and justifies premium menu positioning.",
+      igHook: "What 7:30 AM looks like inside our kitchen every Wednesday.",
+      igCaption: matchedAsset?.aiDescription
+        ? `While the rest of the city is stuck in morning traffic, our team is already slow-simmering fresh sauces for ${matchedAsset.aiDescription.toLowerCase()}. Quality takes patience.`
+        : `While the city is just waking up, our pots are already simmering with fresh peppers, onions, and premium cuts. Pure craft, zero shortcuts.`,
+      ttHook: "Things you only see in a kitchen that actually cares about quality.",
+      ttCaption: "No artificial shortcuts. Step behind the counter with our chef.",
+    },
+    Thursday: {
+      angle: "Office department lunch combo unboxing: maximum value for corporate teams.",
+      rationale: "Thursday is peak departmental bundle ordering day; visual unboxing demonstrates portion generosity and value.",
+      igHook: "How to feed your entire department for lunch without arguments.",
+      igCaption: matchedAsset?.aiDescription
+        ? `Tired of endless WhatsApp debates about where to eat? Our executive departmental combo packs include ${matchedAsset.aiDescription.toLowerCase()}. Piping hot and ready to share.`
+        : `Tired of endless debates about where to order lunch? Our corporate combo boxes include mains, sides, and cold drinks packed for your entire team.`,
+      ttHook: "Unboxing the 5-person office lunch pack that saved our Thursday.",
+      ttCaption: "Tag that coworker who always forgets their wallet at lunch.",
+    },
+    Friday: {
+      angle: "Friday celebration shift: hot food moving fast for celebratory team plates.",
+      rationale: "Friday customers want immediate celebratory reward; high dispatch speed signals kitchen vitality and reliability.",
+      igHook: "Friday lunch rules: order hot, celebrate early.",
+      igCaption: matchedAsset?.aiDescription
+        ? `You survived 5 days of deadlines. You earned real comfort food. Featuring ${matchedAsset.aiDescription.toLowerCase()} ready for express dispatch across ${location}.`
+        : `You survived the work week. Celebrate with a serious plate of food before the weekend officially starts. Hot food moving fast.`,
+      ttHook: "The exact moment Friday hits inside the kitchen.",
+      ttCaption: "High tempo, hot orders on the move. Have a great weekend!",
+    },
+    Saturday: {
+      angle: "Saturday dine-in comfort: take your time with steaming signature comfort bowls.",
+      rationale: "Weekend patrons seek relaxation and connection; highlighting dine-in ambiance increases average table check size.",
+      igHook: "No deadlines today. Just comfortable tables and honest food.",
+      igCaption: matchedAsset?.aiDescription
+        ? `Shut your laptop down. Bring your friends or family to our dining room and enjoy ${matchedAsset.aiDescription.toLowerCase()}. Slow down and savor the weekend.`
+        : `Shut the laptop down. Bring your friends and family by our dining room for piping-hot comfort bowls and relaxed Saturday conversation.`,
+      ttHook: "Tell me your Saturday plans without telling me your Saturday plans.",
+      ttCaption: "Steaming comfort food in full effect. Tables open until late.",
+    },
+    Sunday: {
+      angle: "Sunday table gratitude: celebrating our community and weekly regulars.",
+      rationale: "Sunday community appreciation creates emotional attachment and transforms casual diners into loyal brand advocates.",
+      igHook: "To everyone who made our kitchen their Sunday tradition: thank you.",
+      igCaption: matchedAsset?.aiDescription
+        ? `There is nothing we love more than a dining room full of smiling families sharing ${matchedAsset.aiDescription.toLowerCase()}. Thank you for an incredible week, ${location}.`
+        : `There is nothing we love more than full tables and laughing families on Sunday afternoon. Thank you for dining with us all week, ${location}.`,
+      ttHook: "The best view in ${location} on a Sunday afternoon.",
+      ttCaption: "Good people, great food, restful Sunday vibes.",
+    },
+  };
+
+  const copy = altCopy[dayOfWeek] || altCopy.Monday;
+
+  const instagramAdaptation: PlatformAdaptation = {
+    hook: copy.igHook,
+    caption: `${copy.igCaption}\n\n${cta}`,
+    cta,
+    visualOverlayNotes: `First 3 seconds: Bold high-contrast text overlay: "${copy.igHook}"`,
+  };
+
+  const tiktokAdaptation: PlatformAdaptation = {
+    hook: copy.ttHook,
+    caption: `${copy.ttCaption} #akurefood #${restaurantName.replace(/\s+/g, "").toLowerCase()}`,
+    cta,
+    audioVisualPacing: "Fast-cut sequence (0.8s clips). Clear food sizzle or packaging audio. Natural spoken voiceover.",
+  };
+
+  return {
+    contentAngle: copy.angle,
+    strategicRationale: copy.rationale,
+    instagramHook: copy.igHook,
+    instagramCaption: copy.igCaption,
+    instagramCta: cta,
+    tiktokHook: copy.ttHook,
+    tiktokCaption: copy.ttCaption,
+    tiktokCta: cta,
+    instagramAdaptation,
+    tiktokAdaptation,
+  };
+}
