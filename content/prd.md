@@ -302,6 +302,18 @@ Users have granular control over every card in the 7-day schedule:
 * **Formatted PDF Export:** Downloadable weekly run-sheet with asset thumbnails, caption copy, and posting windows for kitchen managers and staff.
 * **No Direct Publishing:** Cleanly decouples strategy from API scheduling dependencies.
 
+### Phase 7 Implementation & Completion Verification
+* **Platform-Native Copywriting**: Full native drawers for Instagram (first 3s overlay notes, readable line breaks, bio/DM conversion CTAs) and TikTok (pattern interrupt hooks, line-by-line spoken script, audio-visual pacing).
+* **Interactive Controls Implemented**:
+  * **Keep / Lock**: One-click toggle between `draft` and `approved` with visual badge locking on calendar tabs.
+  * **Edit Modal**: Full text editing of headline/hook, body caption, conversion CTA, recommended posting time, and strategic commercial rationale.
+  * **Regenerate Single Day**: Dedicated `POST /api/strategy/regenerate-day` endpoint and UI action to re-prompt alternative creative angles while keeping assigned assets and weekly context.
+  * **Replace Media Asset**: Interactive modal picker allowing owners to browse uploaded library assets (filtered by photos/videos) and swap media onto any day, or revert to a custom filming brief.
+* **Export & Delivery Suite**:
+  * **WhatsApp / Notion / Slack Markdown**: One-click copy for the entire 7-day schedule or individual days, plus direct `.txt` file download.
+  * **Printable Kitchen Run-Sheet**: Formatted weekly dispatch run-sheet table with browser print / PDF export styling (`window.print()` with `@media print` layout).
+* **Zero Emojis Enforced**: Strictly Lucide icons across all views and modals.
+
 ---
 
 # 11. Main App Views & Core Responsibilities
