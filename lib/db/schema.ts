@@ -194,19 +194,36 @@ export interface ContentAsset {
   updatedAt?: string;
 }
 
+export interface ContentToCreateBrief {
+  concept: string;
+  instructions: string;
+  targetDurationSeconds: number;
+  filmingWindow?: string;
+}
+
+export interface PlatformAdaptation {
+  hook: string;
+  caption: string;
+  cta: string;
+  visualOverlayNotes?: string;
+  audioVisualPacing?: string;
+}
+
 export interface ContentPlan {
   id: string;
   restaurantId: string;
-  weeklyGoalId: string;
+  weeklyGoalId?: string;
   weekStart: string;
+  status?: "active" | "draft" | "archived";
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface ContentPlanItem {
   id: string;
   contentPlanId: string;
-  assetId: string;
-  asset?: ContentAsset;
+  assetId?: string | null;
+  asset?: ContentAsset | null;
   scheduledDate: string;
   dayOfWeek:
     | "Monday"
@@ -218,13 +235,18 @@ export interface ContentPlanItem {
     | "Sunday";
   contentPillar: ContentPillar;
   objective: ContentObjective;
+  platform?: "instagram" | "tiktok" | "both";
   contentAngle: string;
-  instagramHook: string;
-  instagramCaption: string;
-  instagramCta: string;
-  tiktokHook: string;
-  tiktokCaption: string;
-  tiktokCta: string;
+  strategicRationale?: string;
+  contentToCreate?: ContentToCreateBrief | null;
+  instagramHook?: string;
+  instagramCaption?: string;
+  instagramCta?: string;
+  tiktokHook?: string;
+  tiktokCaption?: string;
+  tiktokCta?: string;
+  instagramAdaptation?: PlatformAdaptation | null;
+  tiktokAdaptation?: PlatformAdaptation | null;
   recommendedTime: string;
   status: "draft" | "approved" | "exported";
 }

@@ -1,0 +1,315 @@
+{
+  "plans": {
+    "plan-rest-ovie-2026-10-05": {
+      "id": "plan-rest-ovie-2026-10-05",
+      "restaurantId": "rest-ovie",
+      "weeklyGoalId": "increase_lunch_orders",
+      "weekStart": "2026-10-05",
+      "status": "active",
+      "createdAt": "2026-10-08T11:44:40.912Z",
+      "updatedAt": "2026-10-08T11:44:40.913Z"
+    }
+  },
+  "items": {
+    "plan-rest-ovie-2026-10-05": [
+      {
+        "id": "item-plan-rest-ovie-2026-10-05-monday",
+        "contentPlanId": "plan-rest-ovie-2026-10-05",
+        "assetId": "603917ae-692a-44d1-a8fe-007a5f3d007a",
+        "asset": {
+          "id": "603917ae-692a-44d1-a8fe-007a5f3d007a",
+          "restaurantId": "rest-ovie",
+          "fileUrl": "https://gnoxeiedfpiysnimyjog.supabase.co/storage/v1/object/sign/content-assets/rest-ovie/603917ae-692a-44d1-a8fe-007a5f3d007a/IMG_0089.png?token=eyJraWQiOiI4YzA1ZGExNC1iZWJmLTQ2NzgtYjhlZC0yM2MyODMyNDc0YTkiLCJhbGciOiJIUzUxMiJ9.eyJ1cmwiOiJjb250ZW50LWFzc2V0cy9yZXN0LW92aWUvNjAzOTE3YWUtNjkyYS00NGQxLWE4ZmUtMDA3YTVmM2QwMDdhL0lNR18wMDg5LnBuZyIsInNjb3BlIjoiZG93bmxvYWQiLCJpYXQiOjE3OTE0NTk4ODEsImV4cCI6MTc5MTQ2NzA4MX0.5j5DNExojgJgBZgHerzUNT9tcWGC-W64PNZQq_RG1X6-iZp2iVBjIEjLA5vkSjaQrcGyIo1PC2f3ggI9LsnSjw",
+          "fileName": "IMG_0089.png",
+          "mediaType": "image",
+          "mimeType": "image/png",
+          "fileSize": 67,
+          "storageKey": "rest-ovie/603917ae-692a-44d1-a8fe-007a5f3d007a/IMG_0089.png",
+          "uploadStatus": "uploaded",
+          "aiDescription": "Tender grilled beef suya seasoned with yaji pepper spices and red onions.",
+          "contentType": "Food/product",
+          "contentPillar": "product",
+          "objective": "conversion",
+          "suggestedPlatform": "instagram",
+          "suggestedAngle": "Focus on evening takeaway cravings.",
+          "confidence": 0.55,
+          "processingStatus": "analyzed",
+          "createdAt": "2026-10-08T10:08:35.486+00:00",
+          "updatedAt": "2026-10-08T10:09:21.184+00:00"
+        },
+        "scheduledDate": "2026-10-05",
+        "dayOfWeek": "Monday",
+        "contentPillar": "product",
+        "objective": "conversion",
+        "platform": "both",
+        "contentAngle": "Solve the Monday office lunch decision early for Akure, Ondo State workers.",
+        "strategicRationale": "Monday morning corporate workers suffer decision fatigue. Showcasing an immediate, steaming lunch solution at 11:30 AM converts orders before internal team meetings start.",
+        "contentToCreate": null,
+        "instagramHook": "Your Monday lunch dilemma is already solved.",
+        "instagramCaption": "Why face another exhausting Monday wondering where to find honest, piping-hot food? Here is our tender grilled beef suya seasoned with yaji pepper spices and red onions. ready to dispatch straight to your desk. Freshly prepared, zero shortcuts.",
+        "instagramCta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+        "tiktokHook": "POV: It's Monday 12 PM and your lunch is already on your desk.",
+        "tiktokCaption": "Monday lunch scramble? Never heard of it. Steaming plates on standby across Akure.",
+        "tiktokCta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+        "instagramAdaptation": {
+          "hook": "Your Monday lunch dilemma is already solved.",
+          "caption": "Why face another exhausting Monday wondering where to find honest, piping-hot food? Here is our tender grilled beef suya seasoned with yaji pepper spices and red onions. ready to dispatch straight to your desk. Freshly prepared, zero shortcuts.\n\nTap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+          "cta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+          "visualOverlayNotes": "First 3 seconds: Bold high-contrast text overlay: \"Your Monday lunch dilemma is already solved.\""
+        },
+        "tiktokAdaptation": {
+          "hook": "POV: It's Monday 12 PM and your lunch is already on your desk.",
+          "caption": "Monday lunch scramble? Never heard of it. Steaming plates on standby across Akure. #akurefood #ovie'skitchen",
+          "cta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+          "audioVisualPacing": "Fast-cut sequence (0.8s clips). Clear food sizzle or packaging audio. Natural spoken voiceover."
+        },
+        "recommendedTime": "11:30 AM",
+        "status": "approved"
+      },
+      {
+        "id": "item-plan-rest-ovie-2026-10-05-tuesday",
+        "contentPlanId": "plan-rest-ovie-2026-10-05",
+        "assetId": "1404b15b-16c9-48b9-ad48-555c5cf73d54",
+        "asset": {
+          "id": "1404b15b-16c9-48b9-ad48-555c5cf73d54",
+          "restaurantId": "rest-ovie",
+          "fileUrl": "https://gnoxeiedfpiysnimyjog.supabase.co/storage/v1/object/sign/content-assets/rest-ovie/1404b15b-16c9-48b9-ad48-555c5cf73d54/smoky_party_jollof_pot.png?token=eyJraWQiOiI4YzA1ZGExNC1iZWJmLTQ2NzgtYjhlZC0yM2MyODMyNDc0YTkiLCJhbGciOiJIUzUxMiJ9.eyJ1cmwiOiJjb250ZW50LWFzc2V0cy9yZXN0LW92aWUvMTQwNGIxNWItMTZjOS00OGI5LWFkNDgtNTU1YzVjZjczZDU0L3Ntb2t5X3BhcnR5X2pvbGxvZl9wb3QucG5nIiwic2NvcGUiOiJkb3dubG9hZCIsImlhdCI6MTc5MTQ1OTg4MSwiZXhwIjoxNzkxNDY3MDgxfQ.3mmFqVlPigYE7tdX5vpJtFyb_lZVB36SVSnpMUZGXs1Gj2FJHQ437xOeU-r16spAHTFMEYhwN9JyiSz1ew0xJw",
+          "fileName": "smoky_party_jollof_pot.png",
+          "mediaType": "image",
+          "mimeType": "image/png",
+          "fileSize": 67,
+          "storageKey": "rest-ovie/1404b15b-16c9-48b9-ad48-555c5cf73d54/smoky_party_jollof_pot.png",
+          "uploadStatus": "uploaded",
+          "aiDescription": "Artisan presentation of Smoky party jollof pot at Ovie's Kitchen, framed with rich color contrast and appetite-stimulating texture.",
+          "contentType": "Food/product",
+          "contentPillar": "product",
+          "objective": "conversion",
+          "suggestedPlatform": "instagram",
+          "suggestedAngle": "Center on immediate hunger triggers and midday cravings to drive fast whatsapp order.",
+          "confidence": 0.95,
+          "processingStatus": "analyzed",
+          "createdAt": "2026-10-08T10:08:00.96+00:00",
+          "updatedAt": "2026-10-08T10:21:27.563+00:00"
+        },
+        "scheduledDate": "2026-10-06",
+        "dayOfWeek": "Tuesday",
+        "contentPillar": "social_proof",
+        "objective": "trust",
+        "platform": "both",
+        "contentAngle": "Zero actors. Real patron reactions validating food quality and portion size.",
+        "strategicRationale": "Peer social proof overcomes skepticism about taste and portion size. Highlighting authentic diner reactions builds trust with new corporate clients.",
+        "contentToCreate": null,
+        "instagramHook": "Watch this before you order lunch anywhere else today.",
+        "instagramCaption": "We can tell you our food is tender and flavorful all day, but nothing speaks clearer than an empty plate. Featuring artisan presentation of smoky party jollof pot at ovie's kitchen, framed with rich color contrast and appetite-stimulating texture.. Clean plates every time.",
+        "instagramCta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+        "tiktokHook": "The face you make when the food actually matches the hype.",
+        "tiktokCaption": "First bite review from our regular Tuesday lunch crew. Clean plates every time.",
+        "tiktokCta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+        "instagramAdaptation": {
+          "hook": "Watch this before you order lunch anywhere else today.",
+          "caption": "We can tell you our food is tender and flavorful all day, but nothing speaks clearer than an empty plate. Featuring artisan presentation of smoky party jollof pot at ovie's kitchen, framed with rich color contrast and appetite-stimulating texture.. Clean plates every time.\n\nTap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+          "cta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+          "visualOverlayNotes": "First 3 seconds: Bold high-contrast text overlay: \"Watch this before you order lunch anywhere else today.\""
+        },
+        "tiktokAdaptation": {
+          "hook": "The face you make when the food actually matches the hype.",
+          "caption": "First bite review from our regular Tuesday lunch crew. Clean plates every time. #akurefood #ovie'skitchen",
+          "cta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+          "audioVisualPacing": "Fast-cut sequence (0.8s clips). Clear food sizzle or packaging audio. Natural spoken voiceover."
+        },
+        "recommendedTime": "12:00 PM",
+        "status": "draft"
+      },
+      {
+        "id": "item-plan-rest-ovie-2026-10-05-wednesday",
+        "contentPlanId": "plan-rest-ovie-2026-10-05",
+        "assetId": null,
+        "scheduledDate": "2026-10-07",
+        "dayOfWeek": "Wednesday",
+        "contentPillar": "education",
+        "objective": "trust",
+        "platform": "both",
+        "contentAngle": "Kitchen technique & fresh sourcing: why commercial shortcuts ruin good soup and rice.",
+        "strategicRationale": "Midweek customer retention requires proving quality craft over fast-food shortcuts. Revealing culinary simmering technique justifies premium menu pricing.",
+        "contentToCreate": {
+          "concept": "Diner First-Bite Reaction or Clean Plate",
+          "instructions": "Ask a regular customer if you can record a 5-second clip of them nodding after their first bite or zooming in on an empty plate with a thumbs up.",
+          "targetDurationSeconds": 12,
+          "filmingWindow": "12:45 PM - 1:30 PM (Midday peak)"
+        },
+        "instagramHook": "Why our pepper sauce takes hours of slow simmer every morning.",
+        "instagramCaption": "No artificial seasoning shortcuts. No microwave reheats. Just fresh tomatoes, scotch bonnets, and authentic culinary patience. When you taste our food today, this is what you are paying for.",
+        "instagramCta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+        "tiktokHook": "The real reason your homemade jollof doesn't hit like restaurant jollof.",
+        "tiktokCaption": "Step inside the kitchen at 7:30 AM. Fresh ingredients, zero shortcuts.",
+        "tiktokCta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+        "instagramAdaptation": {
+          "hook": "Why our pepper sauce takes hours of slow simmer every morning.",
+          "caption": "No artificial seasoning shortcuts. No microwave reheats. Just fresh tomatoes, scotch bonnets, and authentic culinary patience. When you taste our food today, this is what you are paying for.\n\nTap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+          "cta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+          "visualOverlayNotes": "First 3 seconds: Bold high-contrast text overlay: \"Why our pepper sauce takes hours of slow simmer every morning.\""
+        },
+        "tiktokAdaptation": {
+          "hook": "The real reason your homemade jollof doesn't hit like restaurant jollof.",
+          "caption": "Step inside the kitchen at 7:30 AM. Fresh ingredients, zero shortcuts. #akurefood #ovie'skitchen",
+          "cta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+          "audioVisualPacing": "Fast-cut sequence (0.8s clips). Clear food sizzle or packaging audio. Natural spoken voiceover."
+        },
+        "recommendedTime": "10:45 AM",
+        "status": "draft"
+      },
+      {
+        "id": "item-plan-rest-ovie-2026-10-05-thursday",
+        "contentPlanId": "plan-rest-ovie-2026-10-05",
+        "assetId": null,
+        "scheduledDate": "2026-10-08",
+        "dayOfWeek": "Thursday",
+        "contentPillar": "promotion",
+        "objective": "conversion",
+        "platform": "both",
+        "contentAngle": "Group corporate bundle unboxing: complete desk combo packaging breakdown.",
+        "strategicRationale": "Departmental lunch groups consolidate orders on Thursdays. Unboxing the full executive combo pack directly triggers office group WhatsApp orders.",
+        "contentToCreate": {
+          "concept": "Diner First-Bite Reaction or Clean Plate",
+          "instructions": "Ask a regular customer if you can record a 5-second clip of them nodding after their first bite or zooming in on an empty plate with a thumbs up.",
+          "targetDurationSeconds": 12,
+          "filmingWindow": "12:45 PM - 1:30 PM (Midday peak)"
+        },
+        "instagramHook": "The executive combo that feeds your whole department without breaking budget.",
+        "instagramCaption": "Midweek energy running low? Our Thursday departmental combo packs feed your team with piping-hot mains, sides, and chilled drinks. Sealed in insulated containers to arrive steaming hot.",
+        "instagramCta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+        "tiktokHook": "What a full lunch combo gets you in Akure right now.",
+        "tiktokCaption": "Full unboxing of the Thursday executive combo. Tag a coworker who owes you lunch.",
+        "tiktokCta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+        "instagramAdaptation": {
+          "hook": "The executive combo that feeds your whole department without breaking budget.",
+          "caption": "Midweek energy running low? Our Thursday departmental combo packs feed your team with piping-hot mains, sides, and chilled drinks. Sealed in insulated containers to arrive steaming hot.\n\nTap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+          "cta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+          "visualOverlayNotes": "First 3 seconds: Bold high-contrast text overlay: \"The executive combo that feeds your whole department without breaking budget.\""
+        },
+        "tiktokAdaptation": {
+          "hook": "What a full lunch combo gets you in Akure right now.",
+          "caption": "Full unboxing of the Thursday executive combo. Tag a coworker who owes you lunch. #akurefood #ovie'skitchen",
+          "cta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+          "audioVisualPacing": "Fast-cut sequence (0.8s clips). Clear food sizzle or packaging audio. Natural spoken voiceover."
+        },
+        "recommendedTime": "11:15 AM",
+        "status": "draft"
+      },
+      {
+        "id": "item-plan-rest-ovie-2026-10-05-friday",
+        "contentPlanId": "plan-rest-ovie-2026-10-05",
+        "assetId": null,
+        "scheduledDate": "2026-10-09",
+        "dayOfWeek": "Friday",
+        "contentPillar": "behind_the_scenes",
+        "objective": "conversion",
+        "platform": "both",
+        "contentAngle": "High-tempo 11:30 AM dispatch line: packing 25 orders in 12 minutes for celebration lunch.",
+        "strategicRationale": "Friday lunch urgency centers on delivery speed and celebration. Showing high-tempo packaging at 11:30 AM proves dispatch reliability for office lunch parties.",
+        "contentToCreate": {
+          "concept": "11:45 AM Rush Takeaway Packaging Line",
+          "instructions": "Position your smartphone at counter height. Film your staff rapidly boxing and foil-wrapping 5 takeaway packs for courier pickup.",
+          "targetDurationSeconds": 12,
+          "filmingWindow": "11:45 AM - 12:15 PM (Pre-lunch rush)"
+        },
+        "instagramHook": "Friday 11:45 AM inside our dispatch line. We don't play with delivery deadlines.",
+        "instagramCaption": "When your team orders Friday celebration lunch, you want it delivered on time. Here is our line boxing up today's first 25 dispatch orders. Hot food moving fast.",
+        "instagramCta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+        "tiktokHook": "How we pack 25 corporate lunch deliveries in under 15 minutes.",
+        "tiktokCaption": "Friday shift tempo. Hot food moving fast. Deliveries on the road across town.",
+        "tiktokCta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+        "instagramAdaptation": {
+          "hook": "Friday 11:45 AM inside our dispatch line. We don't play with delivery deadlines.",
+          "caption": "When your team orders Friday celebration lunch, you want it delivered on time. Here is our line boxing up today's first 25 dispatch orders. Hot food moving fast.\n\nTap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+          "cta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+          "visualOverlayNotes": "First 3 seconds: Bold high-contrast text overlay: \"Friday 11:45 AM inside our dispatch line. We don't play with delivery deadlines.\""
+        },
+        "tiktokAdaptation": {
+          "hook": "How we pack 25 corporate lunch deliveries in under 15 minutes.",
+          "caption": "Friday shift tempo. Hot food moving fast. Deliveries on the road across town. #akurefood #ovie'skitchen",
+          "cta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+          "audioVisualPacing": "Fast-cut sequence (0.8s clips). Clear food sizzle or packaging audio. Natural spoken voiceover."
+        },
+        "recommendedTime": "11:30 AM",
+        "status": "draft"
+      },
+      {
+        "id": "item-plan-rest-ovie-2026-10-05-saturday",
+        "contentPlanId": "plan-rest-ovie-2026-10-05",
+        "assetId": null,
+        "scheduledDate": "2026-10-10",
+        "dayOfWeek": "Saturday",
+        "contentPillar": "product",
+        "objective": "awareness",
+        "platform": "both",
+        "contentAngle": "Weekend slow-down: signature comfort dishes for dine-in relaxation with friends.",
+        "strategicRationale": "Weekend shift from delivery to dine-in relaxation. Spotlighting signature comfort dishes attracts families and friends seeking weekend recovery.",
+        "contentToCreate": {
+          "concept": "Diner First-Bite Reaction or Clean Plate",
+          "instructions": "Ask a regular customer if you can record a 5-second clip of them nodding after their first bite or zooming in on an empty plate with a thumbs up.",
+          "targetDurationSeconds": 12,
+          "filmingWindow": "12:45 PM - 1:30 PM (Midday peak)"
+        },
+        "instagramHook": "The weekend recovery bowl your body has been asking for all week.",
+        "instagramCaption": "Five days of corporate spreadsheets are behind you. Come sit down in our dining room, order a fresh pot of steaming comfort soup, and relax with good company.",
+        "instagramCta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+        "tiktokHook": "If your Saturday doesn't start with fresh pepper soup, what are you doing?",
+        "tiktokCaption": "Real meat, hot aromatic broth. Weekend reset in full effect.",
+        "tiktokCta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+        "instagramAdaptation": {
+          "hook": "The weekend recovery bowl your body has been asking for all week.",
+          "caption": "Five days of corporate spreadsheets are behind you. Come sit down in our dining room, order a fresh pot of steaming comfort soup, and relax with good company.\n\nTap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+          "cta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+          "visualOverlayNotes": "First 3 seconds: Bold high-contrast text overlay: \"The weekend recovery bowl your body has been asking for all week.\""
+        },
+        "tiktokAdaptation": {
+          "hook": "If your Saturday doesn't start with fresh pepper soup, what are you doing?",
+          "caption": "Real meat, hot aromatic broth. Weekend reset in full effect. #akurefood #ovie'skitchen",
+          "cta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+          "audioVisualPacing": "Fast-cut sequence (0.8s clips). Clear food sizzle or packaging audio. Natural spoken voiceover."
+        },
+        "recommendedTime": "1:00 PM",
+        "status": "draft"
+      },
+      {
+        "id": "item-plan-rest-ovie-2026-10-05-sunday",
+        "contentPlanId": "plan-rest-ovie-2026-10-05",
+        "assetId": null,
+        "scheduledDate": "2026-10-11",
+        "dayOfWeek": "Sunday",
+        "contentPillar": "community",
+        "objective": "engagement",
+        "platform": "both",
+        "contentAngle": "Sunday family table atmosphere: closing out the week with regular patrons.",
+        "strategicRationale": "Sunday dining room community builds brand loyalty and recurring tradition. Gratitude post invites customer engagement and closes out the marketing week.",
+        "contentToCreate": {
+          "concept": "Diner First-Bite Reaction or Clean Plate",
+          "instructions": "Ask a regular customer if you can record a 5-second clip of them nodding after their first bite or zooming in on an empty plate with a thumbs up.",
+          "targetDurationSeconds": 12,
+          "filmingWindow": "12:45 PM - 1:30 PM (Midday peak)"
+        },
+        "instagramHook": "Sunday tables are for family, good laughter, and overflowing plates.",
+        "instagramCaption": "Our dining room on Sunday afternoon is our favorite view of the week. To every family and group of friends who made Ovie's Kitchen their Sunday tradition: thank you for dining with us.",
+        "instagramCta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+        "tiktokHook": "The Sunday dining room atmosphere hits different.",
+        "tiktokCaption": "Full tables, good music, honest food. Have a restful Sunday, Akure, Ondo State.",
+        "tiktokCta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+        "instagramAdaptation": {
+          "hook": "Sunday tables are for family, good laughter, and overflowing plates.",
+          "caption": "Our dining room on Sunday afternoon is our favorite view of the week. To every family and group of friends who made Ovie's Kitchen their Sunday tradition: thank you for dining with us.\n\nTap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+          "cta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+          "visualOverlayNotes": "First 3 seconds: Bold high-contrast text overlay: \"Sunday tables are for family, good laughter, and overflowing plates.\""
+        },
+        "tiktokAdaptation": {
+          "hook": "The Sunday dining room atmosphere hits different.",
+          "caption": "Full tables, good music, honest food. Have a restful Sunday, Akure, Ondo State. #akurefood #ovie'skitchen",
+          "cta": "Tap link in bio or message our WhatsApp order desk to lock in your plate before rush hour.",
+          "audioVisualPacing": "Fast-cut sequence (0.8s clips). Clear food sizzle or packaging audio. Natural spoken voiceover."
+        },
+        "recommendedTime": "3:30 PM",
+        "status": "draft"
+      }
+    ]
+  }
+}
