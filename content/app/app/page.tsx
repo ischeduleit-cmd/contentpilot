@@ -11,7 +11,6 @@ import {
   Upload,
   CheckCircle2,
   Clock,
-  Sparkles,
   ShieldAlert,
   Store,
   RefreshCw,

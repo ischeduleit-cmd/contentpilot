@@ -9,7 +9,6 @@ import {
   Cloud,
   CheckCircle2,
   Calendar,
-  Sparkles,
   Utensils,
   Share2,
   FileText,
