@@ -8,8 +8,8 @@ import { ArrowUp, Layers, Mail } from "lucide-react";
 export function Footer() {
   const pathname = usePathname();
 
-  // Hide public footer on authenticated app routes
-  if (pathname.startsWith("/app")) {
+  // The landing page includes its own product footer.
+  if (pathname === "/" || pathname.startsWith("/app")) {
     return null;
   }
 

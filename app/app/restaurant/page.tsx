@@ -30,10 +30,10 @@ export default function AppRestaurantPage() {
   const [formData, setFormData] = React.useState<OnboardingRestaurantForm>(() => {
     return (
       getStoredRestaurantProfile() || {
-        name: "My Restaurant",
-        location: "City Center",
+        name: "",
+        location: "",
         restaurantType: "restaurant",
-        targetAudience: "Local diners & working professionals",
+        targetAudience: "",
         primaryCustomerAction: "order_food",
         businessDescription: "",
       }
@@ -112,11 +112,12 @@ export default function AppRestaurantPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Restaurant Name */}
             <div className="space-y-2 font-mono text-xs">
-              <label className="text-zinc-300 flex items-center gap-1.5 font-bold">
+              <label htmlFor="restaurant-name" className="text-zinc-300 flex items-center gap-1.5 font-bold">
                 <Store className="w-3.5 h-3.5 text-zinc-400" />
                 <span>Restaurant Name</span>
               </label>
               <Input
+                id="restaurant-name"
                 value={formData.name}
                 onChange={(e) => handleInputChange("name", e.target.value)}
                 placeholder="e.g. Copper Pot Bistro"
@@ -130,11 +131,12 @@ export default function AppRestaurantPage() {
 
             {/* City / Location */}
             <div className="space-y-2 font-mono text-xs">
-              <label className="text-zinc-300 flex items-center gap-1.5 font-bold">
+              <label htmlFor="restaurant-location" className="text-zinc-300 flex items-center gap-1.5 font-bold">
                 <MapPin className="w-3.5 h-3.5 text-zinc-400" />
                 <span>Location (City / Area)</span>
               </label>
               <Input
+                id="restaurant-location"
                 value={formData.location}
                 onChange={(e) => handleInputChange("location", e.target.value)}
                 placeholder="e.g. Downtown Chicago, IL"
@@ -149,16 +151,17 @@ export default function AppRestaurantPage() {
 
           {/* Establishment Type */}
           <div className="space-y-2 font-mono text-xs">
-            <label className="text-zinc-300 flex items-center gap-1.5 font-bold">
+              <label className="text-zinc-300 flex items-center gap-1.5 font-bold">
               <Utensils className="w-3.5 h-3.5 text-zinc-400" />
               <span>Establishment Type</span>
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2" role="group" aria-label="Restaurant type">
               {RESTAURANT_TYPES.map((type) => (
                 <button
                   type="button"
                   key={type.id}
                   onClick={() => handleInputChange("restaurantType", type.id)}
+                  aria-pressed={formData.restaurantType === type.id}
                   className={`p-3 border text-left transition-all flex flex-col justify-between ${
                     formData.restaurantType === type.id
                       ? "border-white bg-black text-white"
@@ -173,11 +176,12 @@ export default function AppRestaurantPage() {
 
           {/* Target Audience */}
           <div className="space-y-2 font-mono text-xs">
-            <label className="text-zinc-300 flex items-center gap-1.5 font-bold">
+              <label htmlFor="restaurant-audience" className="text-zinc-300 flex items-center gap-1.5 font-bold">
               <Users className="w-3.5 h-3.5 text-zinc-400" />
               <span>Target Diners &amp; Audience</span>
             </label>
             <Textarea
+              id="restaurant-audience"
               value={formData.targetAudience}
               onChange={(e) => handleInputChange("targetAudience", e.target.value)}
               placeholder="e.g. Office workers, bankers, students, weekend diners seeking authentic local cuisine."
@@ -195,12 +199,13 @@ export default function AppRestaurantPage() {
               <Send className="w-3.5 h-3.5 text-zinc-400" />
               <span>Primary Customer Conversion Action</span>
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2" role="group" aria-label="Desired customer action">
               {PRIMARY_ACTIONS.map((action) => (
                 <button
                   type="button"
                   key={action.id}
                   onClick={() => handleInputChange("primaryCustomerAction", action.id)}
+                  aria-pressed={formData.primaryCustomerAction === action.id}
                   className={`p-3 border text-left transition-all ${
                     formData.primaryCustomerAction === action.id
                       ? "border-white bg-black text-white font-bold"
@@ -215,11 +220,12 @@ export default function AppRestaurantPage() {
 
           {/* Business Description */}
           <div className="space-y-2 font-mono text-xs">
-            <label className="text-zinc-300 flex items-center gap-1.5 font-bold">
+              <label htmlFor="restaurant-description" className="text-zinc-300 flex items-center gap-1.5 font-bold">
               <FileText className="w-3.5 h-3.5 text-zinc-400" />
               <span>Business Description</span>
             </label>
             <Textarea
+              id="restaurant-description"
               value={formData.businessDescription || ""}
               onChange={(e) => handleInputChange("businessDescription", e.target.value)}
               placeholder="e.g. Artisanal scratch kitchen specializing in wood-fired pizzas, slow-simmered sauces, and housemade pasta."

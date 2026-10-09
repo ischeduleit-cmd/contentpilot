@@ -38,135 +38,6 @@ import {
 import { GapAnalysisResult } from "@/lib/gap-analyzer";
 import { BusinessGoalType, ContentPlanItem, ContentAsset } from "@/lib/db/schema";
 
-const DEFAULT_INITIAL_PLAN: ContentPlanItem[] = [
-  {
-    id: "initial-mon",
-    contentPlanId: "plan-initial",
-    dayOfWeek: "Monday",
-    scheduledDate: new Date().toISOString().split("T")[0],
-    contentPillar: "product",
-    objective: "conversion",
-    contentAngle: "High-urgency lunch conversion hook showcasing your kitchen signature dish.",
-    recommendedTime: "11:30 AM",
-    status: "draft",
-    strategicRationale: "Targeting active diners during lunch decision windows with clear conversion call-to-action.",
-    instagramHook: "Skip the lunchtime line today.",
-    instagramCaption: "Fresh dishes moving fast out of the kitchen. Order now for prompt delivery.",
-    instagramCta: "Tap link in bio to order now.",
-    tiktokHook: "POV: What you should be having for lunch today.",
-    tiktokCaption: "Hot dishes ready to go. Freshly made daily.",
-    tiktokCta: "Link in bio to order directly.",
-  },
-  {
-    id: "initial-tue",
-    contentPlanId: "plan-initial",
-    dayOfWeek: "Tuesday",
-    scheduledDate: new Date().toISOString().split("T")[0],
-    contentPillar: "behind_the_scenes",
-    objective: "trust",
-    contentAngle: "Kitchen prep authenticity and fresh ingredient handling.",
-    recommendedTime: "10:30 AM",
-    status: "draft",
-    strategicRationale: "Demonstrates craft and quality ingredients to build trust with new diners.",
-    instagramHook: "Behind the kitchen pass this morning.",
-    instagramCaption: "Fresh ingredients prepped daily from scratch.",
-    instagramCta: "Save this post for your next meal out.",
-    tiktokHook: "Morning kitchen prep routine before the rush hits.",
-    tiktokCaption: "From prep table to your plate.",
-    tiktokCta: "Follow for daily menu specials.",
-  },
-  {
-    id: "initial-wed",
-    contentPlanId: "plan-initial",
-    dayOfWeek: "Wednesday",
-    scheduledDate: new Date().toISOString().split("T")[0],
-    contentPillar: "social_proof",
-    objective: "trust",
-    contentAngle: "Authentic dining room atmosphere and diner favorites.",
-    recommendedTime: "12:00 PM",
-    status: "draft",
-    strategicRationale: "Social proof reassures prospective diners of quality and portions.",
-    instagramHook: "Midweek lunch table favorites.",
-    instagramCaption: "Full dining room and satisfied guests. Come join us today.",
-    instagramCta: "DM us to reserve your table.",
-    tiktokHook: "What everyone is ordering today.",
-    tiktokCaption: "Midweek energy in the dining room.",
-    tiktokCta: "Tag a friend you need to come with.",
-  },
-  {
-    id: "initial-thu",
-    contentPlanId: "plan-initial",
-    dayOfWeek: "Thursday",
-    scheduledDate: new Date().toISOString().split("T")[0],
-    contentPillar: "education",
-    objective: "awareness",
-    contentAngle: "Culinary techniques and signature seasoning breakdown.",
-    recommendedTime: "2:00 PM",
-    status: "draft",
-    strategicRationale: "Educating diners on seasoning and technique positions your kitchen as culinary experts.",
-    instagramHook: "The secret to our signature seasoning.",
-    instagramCaption: "It all starts with deliberate technique and time-honored recipes.",
-    instagramCta: "Tell us your favorite menu item in the comments.",
-    tiktokHook: "Why we prep this dish differently.",
-    tiktokCaption: "Mastering the flavor profile every single day.",
-    tiktokCta: "Hit follow for kitchen secrets.",
-  },
-  {
-    id: "initial-fri",
-    contentPlanId: "plan-initial",
-    dayOfWeek: "Friday",
-    scheduledDate: new Date().toISOString().split("T")[0],
-    contentPillar: "promotion",
-    objective: "conversion",
-    contentAngle: "Weekend kickoff special and Friday rush celebration.",
-    recommendedTime: "4:00 PM",
-    status: "draft",
-    strategicRationale: "Captures weekend dining enthusiasm and drives evening dine-in and pickup.",
-    instagramHook: "Friday night plans, sorted.",
-    instagramCaption: "Tables are filling up fast for tonight. Reserve yours before the dinner rush.",
-    instagramCta: "Book your table now via WhatsApp.",
-    tiktokHook: "Friday dinner energy right here.",
-    tiktokCaption: "Weekend mode is officially activated.",
-    tiktokCta: "Come dine with us tonight.",
-  },
-  {
-    id: "initial-sat",
-    contentPlanId: "plan-initial",
-    dayOfWeek: "Saturday",
-    scheduledDate: new Date().toISOString().split("T")[0],
-    contentPillar: "community",
-    objective: "engagement",
-    contentAngle: "Vibrant dining room scene and shared feast platters.",
-    recommendedTime: "1:00 PM",
-    status: "draft",
-    strategicRationale: "Highlights weekend dining culture, gatherings, and relaxed celebration.",
-    instagramHook: "Weekend dining room moments.",
-    instagramCaption: "Big tables, honest food, and great company. Walk-ins welcome all weekend.",
-    instagramCta: "Visit us today.",
-    tiktokHook: "Saturday food tour at our favorite spot.",
-    tiktokCaption: "Best spot in town for weekend lunch.",
-    tiktokCta: "Share this with your weekend crew.",
-  },
-  {
-    id: "initial-sun",
-    contentPlanId: "plan-initial",
-    dayOfWeek: "Sunday",
-    scheduledDate: new Date().toISOString().split("T")[0],
-    contentPillar: "community",
-    objective: "retention",
-    contentAngle: "Sunday family tradition and relaxed dining wrap-up.",
-    recommendedTime: "3:00 PM",
-    status: "draft",
-    strategicRationale: "Closes the week with warm community connection and appreciation.",
-    instagramHook: "A restful Sunday tradition.",
-    instagramCaption: "Thank you to every family and guest who made us part of their weekend.",
-    instagramCta: "See you again this coming week.",
-    tiktokHook: "Ending the week on the best note possible.",
-    tiktokCaption: "Full tables, great food, restful Sunday.",
-    tiktokCta: "Follow for next week's specials.",
-  },
-];
-
 export default function AppStrategyPage() {
   const [selectedDay, setSelectedDay] = React.useState<string>("Monday");
   const [copiedKey, setCopiedKey] = React.useState<string | null>(null);
@@ -175,9 +46,10 @@ export default function AppStrategyPage() {
   const [selectedGoal, setSelectedGoal] = React.useState<BusinessGoalType>("get_more_orders");
   const [gapAnalysis, setGapAnalysis] = React.useState<GapAnalysisResult | null>(null);
   const [isLoadingGaps, setIsLoadingGaps] = React.useState(true);
+  const [isLoadingPlan, setIsLoadingPlan] = React.useState(true);
 
   // Strategy Generation State
-  const [planItems, setPlanItems] = React.useState<ContentPlanItem[]>(DEFAULT_INITIAL_PLAN);
+  const [planItems, setPlanItems] = React.useState<ContentPlanItem[]>([]);
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [isRegeneratingDay, setIsRegeneratingDay] = React.useState(false);
   const [libraryAssets, setLibraryAssets] = React.useState<ContentAsset[]>([]);
@@ -187,7 +59,7 @@ export default function AppStrategyPage() {
     totalAssetsEvaluated: number;
   }>({
     matchedAssetsCount: 0,
-    briefsToCreateCount: 7,
+      briefsToCreateCount: 0,
     totalAssetsEvaluated: 0,
   });
 
@@ -253,6 +125,7 @@ export default function AppStrategyPage() {
   React.useEffect(() => {
     async function fetchCurrentPlanAndAssets() {
       try {
+        setIsLoadingPlan(true);
         const [planRes, assetsRes] = await Promise.all([
           fetch(`/api/strategy/generate?restaurantId=${restaurantId}&goal=${selectedGoal}`),
           fetch(`/api/content/assets?restaurantId=${restaurantId}`),
@@ -276,6 +149,8 @@ export default function AppStrategyPage() {
         }
       } catch (err) {
         console.error("Failed to fetch strategy or assets:", err);
+      } finally {
+        setIsLoadingPlan(false);
       }
     }
 
@@ -571,6 +446,7 @@ export default function AppStrategyPage() {
             </Link>
             <Button
               onClick={() => setIsExportModalOpen(true)}
+              disabled={planItems.length === 0}
               variant="outline"
               size="sm"
               className="gap-1.5 border-zinc-700 hover:border-white font-mono"
@@ -585,7 +461,7 @@ export default function AppStrategyPage() {
               className="gap-1.5 bg-white text-black hover:bg-zinc-200 border-none font-bold"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isGenerating ? "animate-spin" : ""}`} />
-              <span>{isGenerating ? "Synthesizing Plan..." : "Regenerate Week"}</span>
+              <span>{isGenerating ? "Building your plan..." : planItems.length ? "Regenerate week" : "Generate strategy"}</span>
             </Button>
           </div>
         </div>
@@ -792,6 +668,9 @@ export default function AppStrategyPage() {
         {/* ---------------------------------------------------- */}
         {/* PHASE 6 + PHASE 7: 7-DAY CONTENT STRATEGY BOARD */}
         {/* ---------------------------------------------------- */}
+        {isLoadingPlan ? (
+          <div className="border border-zinc-800 bg-zinc-950 p-8 text-center text-sm text-zinc-400" role="status">Loading your restaurant content and saved strategy…</div>
+        ) : activePlanDay ? (
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-900 pb-3">
             <div>
@@ -1184,10 +1063,24 @@ export default function AppStrategyPage() {
         </div>
       </div>
 
+        ) : (
+          <section className="p-6 sm:p-9 border border-zinc-800 bg-zinc-950 space-y-4" aria-labelledby="empty-strategy-title">
+            <div className="w-11 h-11 grid place-items-center rounded-full bg-amber-950/20 text-amber-400"><Target className="w-5 h-5" /></div>
+            <div className="max-w-xl space-y-2">
+              <h2 id="empty-strategy-title" className="text-xl font-bold text-white">Your weekly plan will appear here</h2>
+              <p className="text-sm text-zinc-400 leading-relaxed">{libraryAssets.length === 0 ? "Add a few restaurant photos or videos first. ContentPilot can then match your real content to this week’s goal and point out what is missing." : "Your content is ready. Generate a seven-day strategy to see which assets fit your goal and what to create next."}</p>
+            </div>
+            <div className="flex flex-wrap gap-3 pt-1">
+              {libraryAssets.length === 0 ? <Link href="/app/content"><Button size="sm" className="gap-2"><FolderOpen className="w-4 h-4" /> Add restaurant content <ArrowRight className="w-3.5 h-3.5" /></Button></Link> : <Button onClick={handleGenerateStrategy} disabled={isGenerating} size="sm" className="gap-2"><RefreshCw className={`w-4 h-4 ${isGenerating ? "animate-spin" : ""}`} />{isGenerating ? "Building your plan..." : "Generate seven-day plan"}</Button>}
+              <Link href="/app/restaurant"><Button variant="outline" size="sm">Review restaurant profile</Button></Link>
+            </div>
+          </section>
+        )}
+
       {/* ---------------------------------------------------- */}
       {/* PHASE 7 MODAL 1: EDIT STRATEGY BRIEF MODAL */}
       {/* ---------------------------------------------------- */}
-      {isEditModalOpen && (
+      {isEditModalOpen && activePlanDay && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-zinc-950 border border-zinc-800 w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 space-y-5 font-mono text-xs">
             <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
@@ -1285,7 +1178,7 @@ export default function AppStrategyPage() {
       {/* ---------------------------------------------------- */}
       {/* PHASE 7 MODAL 2: REPLACE / SWAP MEDIA ASSET MODAL */}
       {/* ---------------------------------------------------- */}
-      {isReplaceAssetModalOpen && (
+      {isReplaceAssetModalOpen && activePlanDay && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-zinc-950 border border-zinc-800 w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 space-y-5 font-mono text-xs">
             <div className="flex items-center justify-between border-b border-zinc-800 pb-3">

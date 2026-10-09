@@ -50,8 +50,9 @@ export default function AppContentPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [filter, setFilter] = React.useState<FilterType>("all");
   const [sort, setSort] = React.useState<SortType>("newest");
-  const [supabaseConfigured, setSupabaseConfigured] = React.useState(true);
+  const [supabaseConfigured, setSupabaseConfigured] = React.useState<boolean | null>(null);
   const [missingEnv, setMissingEnv] = React.useState<string[]>([]);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
 
   // AI Analysis states
   const [isAnalyzingBatch, setIsAnalyzingBatch] = React.useState(false);
@@ -92,17 +93,20 @@ export default function AppContentPage() {
     const activeRestId = currentProfile?.id || "default";
     try {
       setIsLoading(true);
+      setLoadError(null);
       const res = await fetch(`/api/content/assets?restaurantId=${activeRestId}`);
       const data = await res.json();
-      if (data.success) {
-        setAssets(data.assets || []);
-        if (data.supabaseStatus) {
-          setSupabaseConfigured(data.supabaseStatus.isConfigured);
-          setMissingEnv(data.supabaseStatus.missing || []);
-        }
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "The content library could not be loaded.");
+      }
+      setAssets(data.assets || []);
+      if (data.supabaseStatus) {
+        setSupabaseConfigured(data.supabaseStatus.isConfigured);
+        setMissingEnv(data.supabaseStatus.missing || []);
       }
     } catch (err) {
       console.error("Failed to load content assets:", err);
+      setLoadError(err instanceof Error ? err.message : "The content library could not be loaded.");
     } finally {
       setIsLoading(false);
     }
@@ -477,14 +481,14 @@ export default function AppContentPage() {
         </div>
 
         {/* Supabase Environment Notification (if unconfigured) */}
-        {!supabaseConfigured && (
+        {supabaseConfigured === false && (
           <div className="p-4 border border-zinc-800 bg-zinc-950 font-mono text-xs text-zinc-300 space-y-2">
             <div className="flex items-center gap-2 text-white font-semibold">
               <AlertCircle className="w-4 h-4 text-zinc-400" />
-              <span>Supabase Storage Integration</span>
+              <span>Cloud storage is not configured</span>
             </div>
             <p className="text-[11px] text-zinc-400 leading-relaxed font-sans">
-              Connected to <strong>ischeduleit-cmd</strong> Supabase project. Local fallback store is active for offline development.
+              Your workspace is using the available local fallback. Configure the server storage credentials to keep uploads in cloud storage.{missingEnv.length > 0 ? ` Missing settings: ${missingEnv.join(", ")}.` : ""}
             </p>
           </div>
         )}
@@ -496,6 +500,7 @@ export default function AppContentPage() {
             <div className="inline-flex items-center p-1 border border-zinc-800 bg-zinc-950 text-xs font-mono">
               <button
                 onClick={() => setFilter("all")}
+                aria-pressed={filter === "all"}
                 className={`px-3 py-1 transition-colors ${
                   filter === "all"
                     ? "bg-white text-black font-semibold"
@@ -506,6 +511,7 @@ export default function AppContentPage() {
               </button>
               <button
                 onClick={() => setFilter("photos")}
+                aria-pressed={filter === "photos"}
                 className={`px-3 py-1 transition-colors ${
                   filter === "photos"
                     ? "bg-white text-black font-semibold"
@@ -516,6 +522,7 @@ export default function AppContentPage() {
               </button>
               <button
                 onClick={() => setFilter("videos")}
+                aria-pressed={filter === "videos"}
                 className={`px-3 py-1 transition-colors ${
                   filter === "videos"
                     ? "bg-white text-black font-semibold"
@@ -527,6 +534,7 @@ export default function AppContentPage() {
               {needsReviewCount > 0 && (
                 <button
                   onClick={() => setFilter("needs_review")}
+                  aria-pressed={filter === "needs_review"}
                   className={`px-3 py-1 transition-colors ${
                     filter === "needs_review"
                       ? "bg-amber-400 text-black font-semibold"
@@ -543,6 +551,7 @@ export default function AppContentPage() {
               <span>Sort:</span>
               <button
                 onClick={() => setSort("newest")}
+                aria-pressed={sort === "newest"}
                 className={`px-2 py-1 border ${
                   sort === "newest"
                     ? "border-zinc-500 text-white"
@@ -553,6 +562,7 @@ export default function AppContentPage() {
               </button>
               <button
                 onClick={() => setSort("oldest")}
+                aria-pressed={sort === "oldest"}
                 className={`px-2 py-1 border ${
                   sort === "oldest"
                     ? "border-zinc-500 text-white"
@@ -570,6 +580,12 @@ export default function AppContentPage() {
           <div className="py-24 text-center space-y-3 font-mono text-xs text-zinc-500">
             <RefreshCw className="w-5 h-5 mx-auto animate-spin text-zinc-400" />
             <p>Loading your content library...</p>
+          </div>
+        ) : loadError ? (
+          <div role="alert" className="border border-red-200 bg-red-50 p-8 text-center space-y-4">
+            <AlertCircle className="w-6 h-6 mx-auto text-red-700" />
+            <div><h2 className="text-lg font-bold text-white">Your content could not be loaded</h2><p className="mt-2 text-sm text-zinc-400">{loadError}</p></div>
+            <Button variant="outline" onClick={loadAssets}>Try again</Button>
           </div>
         ) : filteredAssets.length === 0 ? (
           <div className="border border-zinc-800 bg-zinc-950 p-12 text-center space-y-4">
@@ -618,9 +634,11 @@ export default function AppContentPage() {
                   className="group border border-zinc-800 bg-zinc-950 flex flex-col justify-between hover:border-zinc-600 transition-colors"
                 >
                   {/* Thumbnail / Media Container */}
-                  <div
+                  <button
+                    type="button"
+                    aria-label={`Preview ${asset.fileName}`}
                     onClick={() => setPreviewAsset(asset)}
-                    className="relative aspect-[4/3] bg-black overflow-hidden cursor-pointer flex items-center justify-center"
+                    className="relative aspect-[4/3] w-full border-0 bg-black p-0 overflow-hidden cursor-pointer flex items-center justify-center"
                   >
                     {isVideo ? (
                       <div className="w-full h-full relative flex items-center justify-center">
@@ -663,19 +681,20 @@ export default function AppContentPage() {
                         </span>
                       </div>
                     )}
-                  </div>
+                  </button>
 
                   {/* Card Meta & Strategic Intelligence */}
                   <div className="p-3 space-y-2.5 border-t border-zinc-900 font-mono text-xs flex-1 flex flex-col justify-between">
                     <div className="space-y-1.5">
                       <div className="flex items-start justify-between gap-2">
-                        <div
-                          className="truncate font-sans font-medium text-white text-xs cursor-pointer hover:underline"
+                        <button
+                          type="button"
+                          className="max-w-full truncate border-0 bg-transparent p-0 text-left font-sans font-medium text-white text-xs cursor-pointer hover:underline"
                           title={asset.fileName}
                           onClick={() => setPreviewAsset(asset)}
                         >
                           {asset.fileName}
-                        </div>
+                        </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -691,10 +710,7 @@ export default function AppContentPage() {
 
                       {/* AI Description Snippet */}
                       {asset.aiDescription ? (
-                        <p
-                          className="text-[11px] font-sans text-zinc-400 line-clamp-2 leading-relaxed cursor-pointer"
-                          onClick={() => setPreviewAsset(asset)}
-                        >
+                        <p className="text-[11px] font-sans text-zinc-400 line-clamp-2 leading-relaxed">
                           {asset.aiDescription}
                         </p>
                       ) : (

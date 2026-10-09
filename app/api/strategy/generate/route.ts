@@ -76,51 +76,20 @@ export async function POST(req: NextRequest) {
 
 /**
  * GET /api/strategy/generate?restaurantId=...
- * Fetches the current 7-day plan, or auto-generates if not present
+ * Fetches the current saved 7-day plan without creating a new one
  */
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const restaurantId = searchParams.get("restaurantId") || BENCHMARK_RESTAURANT.id;
-    const isPublicBenchmark = restaurantId === BENCHMARK_RESTAURANT.id;
-    const goal = (searchParams.get("goal") as BusinessGoalType) || "get_more_orders";
-
     const existing = await getLatestContentPlan(restaurantId);
 
-    if (existing && existing.items.length > 0) {
-      return NextResponse.json({
-        success: true,
-        plan: existing.plan,
-        items: existing.items,
-      });
-    }
-
-    // Auto-generate if no plan exists yet
-    let assets = await listContentAssets(restaurantId);
-    if (assets.length === 0 && isPublicBenchmark) {
-      assets = SAMPLE_BENCHMARK_ASSETS;
-    }
-
-    let realRest = null;
-    if (!isPublicBenchmark) {
-      realRest = await getRestaurantById(restaurantId);
-    }
-
-    const generated = await generateWeeklyContentStrategy({
-      restaurantId,
-      restaurantName: realRest?.name || (isPublicBenchmark ? BENCHMARK_RESTAURANT.name : "Your Restaurant"),
-      location: realRest?.location || (isPublicBenchmark ? BENCHMARK_RESTAURANT.location : "Your City"),
-      goal,
-      availableAssets: assets,
-    });
-
-    await saveContentPlan(generated.plan, generated.items);
-
+    // A read should never silently create and persist a plan. Generation is an
+    // explicit user action handled by POST so an empty workspace stays honest.
     return NextResponse.json({
       success: true,
-      plan: generated.plan,
-      items: generated.items,
-      meta: generated.meta,
+      plan: existing?.plan || null,
+      items: existing?.items || [],
     });
   } catch (error: any) {
     console.error("[Strategy API] Fetch error:", error);
