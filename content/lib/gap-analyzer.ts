@@ -83,6 +83,42 @@ const GOAL_BENCHMARKS: Record<
     weights: Record<ContentPillar, number>; // percentages summing to 100
   }
 > = {
+  get_more_orders: {
+    title: "Get More Orders",
+    description: "Generate immediate delivery, takeout, or dine-in orders with high-urgency conversion hooks.",
+    weights: {
+      product: 35,
+      behind_the_scenes: 20,
+      social_proof: 20,
+      promotion: 15,
+      education: 5,
+      community: 5,
+    },
+  },
+  promote_menu: {
+    title: "Promote Menu",
+    description: "Spotlight signature dishes, specials, or newly added specialties with irresistible visuals.",
+    weights: {
+      product: 40,
+      education: 20,
+      social_proof: 20,
+      promotion: 10,
+      behind_the_scenes: 5,
+      community: 5,
+    },
+  },
+  bring_customers_in: {
+    title: "Bring Customers into Restaurant",
+    description: "Drive foot traffic and dine-in tables during lunch hours and dinner service.",
+    weights: {
+      community: 30,
+      social_proof: 25,
+      product: 25,
+      behind_the_scenes: 10,
+      promotion: 10,
+      education: 0,
+    },
+  },
   increase_lunch_orders: {
     title: "Increase Weekday Lunch Orders",
     description:

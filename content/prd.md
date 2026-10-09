@@ -93,7 +93,7 @@ The public landing page communicates value, frames the operational problem, and 
 * **Core Positioning:**
   * **Headline:** *"Turn the content you already have into a week's worth of restaurant marketing."*
   * **Supporting Copy:** *"Upload your photos and videos, choose your business goal, and get an AI-powered content plan for Instagram and TikTok."*
-  * **Primary CTA:** `Build My Content Plan` (routes directly to onboarding/signup)
+  * **Primary CTA:** `Build My Content Plan` / `Start Free` (routes directly to `/signup`)
   * **Problem Framing:** *"You already have the content. You just don't know what to do with it."*
   * **How It Works:**
     1. *Upload your content:* Add the dish and prep footage already on your phone.
@@ -116,7 +116,117 @@ AI Content Strategy Matrix
   • Saturday:  Weekend slow-down special → Instagram      → Dine-in Discovery
   • Sunday:    Family table atmosphere   → Both           → Community & Retention
 ```
-*Note: This is an interactive demo simulation. It is decoupled from authenticated user data.*
+*Note: This is an interactive demo simulation. It is strictly decoupled from authenticated user data.*
+
+---
+
+### 4.1 Landing Page Pricing Architecture
+
+ContentPilot follows a clear 3-tier SaaS pricing architecture inspired by modern product-led growth principles (Buffer-style transparency).
+
+> **Architectural Guardrail — Presentation Only:**
+> The pricing table is strictly a presentation and commercial positioning layer.
+> **No payment processors (Stripe, Paystack, PayPal, Paddle) are integrated.**
+> Clicking any tier CTA immediately routes the user to the free restaurant account creation flow (`/signup`).
+
+#### Pricing Tiers
+1. **Free Tier — $0 / month**
+   * *Target:* Independent restaurant owners testing AI content planning with existing camera roll footage.
+   * *Features:*
+     * Up to 30 media asset uploads
+     * 1 active weekly business goal
+     * 7-day AI strategy generation (1 run / week)
+     * Basic Instagram & TikTok platform hooks
+     * Standard content gap diagnostic
+     * Manual copy & WhatsApp export
+   * *CTA:* `Start Free` (`/signup`)
+
+2. **Grow Tier — $5 / month (Marked "Most Popular")**
+   * *Target:* Busy restaurants looking for consistent, high-converting weekly social media execution.
+   * *Features:*
+     * Up to 150 media asset uploads
+     * Unlimited weekly business goal switching
+     * Comprehensive multi-pillar content gap analysis
+     * Platform-native Instagram line breaks & TikTok script drawers
+     * Regenerate individual daily posts & replace media assets
+     * Printable kitchen run-sheets & formatted run-sheet copy
+     * Priority AI vision processing
+   * *CTA:* `Get Started with Grow` (`/signup`)
+
+3. **Pro Tier — $10 / month**
+   * *Target:* High-volume dining spots, multi-concept kitchens, cloud kitchens, and restaurant marketers.
+   * *Features:*
+     * Unlimited media asset uploads
+     * Multi-concept & multi-location workspaces
+     * Advanced commercial angle customization & rationale tuning
+     * High-leverage smartphone filming shot-lists (`ContentToCreateBrief`)
+     * Weekly performance review & media fatigue alerts
+     * Team member access & export sharing
+     * Priority support
+   * *CTA:* `Upgrade to Pro` (`/signup`)
+
+#### Feature Comparison Matrix
+| Capability | Free ($0) | Grow ($5) - Most Popular | Pro ($10) |
+| :--- | :---: | :---: | :---: |
+| Media Asset Storage | 30 files | 150 files | Unlimited |
+| Weekly Strategy Runs | 1 plan / week | Unlimited | Unlimited |
+| Goal-Driven Planning | 1 active goal | All 7 business goals | Custom goals |
+| Content Gap Analysis | Basic audit | Full 6-pillar breakdown | Deep commercial diagnostic |
+| Platform Adaptations | Basic hooks | Full IG & TikTok drawers | Custom tone adaptation |
+| Asset Replacement & Regen | Manual | Yes (inline modal) | Yes (instant) |
+| Filming Shot-Lists | Not included | Included | Custom direction |
+| Kitchen Run-Sheet Print/PDF | No | Yes | Yes + custom branding |
+| Payment Integration | None (Free) | None (Presentation) | None (Presentation) |
+
+---
+
+### 4.2 Landing Page FAQ Specifications
+
+ContentPilot answers the 16 most common objections and questions held by busy restaurateurs through an accessible, interactive accordion (`components/ui/accordion`):
+
+1. **How is ContentPilot different from Buffer, Hootsuite, or Later?**
+   * *Answer:* Traditional tools are generic schedulers: they ask you to write captions, pick photos, and set times. ContentPilot is an AI content strategist: it inspects the media already on your phone, audits what you are missing against your specific weekly revenue goal, and decides what you should post, why, and how to adapt it for Instagram and TikTok.
+2. **Do I need professional food photography to use this?**
+   * *Answer:* Absolutely not. ContentPilot is built specifically for raw, authentic smartphone photos and videos. Casual kitchen prep clips, dining room ambiance, and plate presentations frequently outperform staged studio photos on Instagram Reels and TikTok.
+3. **What kind of photos and videos should I upload?**
+   * *Answer:* Anything already on your phone: dishes fresh off the pass, sizzling grills, plating sequences, staff prep, dining room crowds, menu boards, takeout packaging, and happy customers. The AI categorizes and maps them automatically.
+4. **How does the AI know what my restaurant needs this week?**
+   * *Answer:* When onboarding, you select your active weekly business goal (e.g., "Increase weekday lunch orders" or "Promote weekend dine-in"). ContentPilot's gap analysis engine compares your goal against your available media and plans high-converting posts for that exact commercial target.
+5. **Does ContentPilot post directly to Instagram and TikTok for me?**
+   * *Answer:* No. ContentPilot is an intelligent strategy and planning workspace, not a publishing bot. It generates your complete 7-day schedule, hooks, scripts, and captions, and allows you to copy everything in one click or print a run-sheet for your team. You retain full control before publishing.
+6. **What is a "Content Gap Analysis"?**
+   * *Answer:* If your goal is to boost weekday lunch orders but all 20 photos in your library are dessert photos, a standard scheduler would post cake photos on Monday morning. ContentPilot flags that you have zero speed-of-service or lunch combo assets and provides a 10-second smartphone shot brief to fill the gap.
+7. **What are "Content to Create" briefs?**
+   * *Answer:* When the AI identifies that your library lacks footage needed to hit your goal, it creates an exact, 10-second filming prompt for your kitchen or floor staff (e.g., *"Record 8 seconds of steam rising from the lunch special packaging at 11:45 AM"*).
+8. **Can I edit the generated captions and hooks?**
+   * *Answer:* Yes. Every single day in your 7-day strategy can be kept, edited inline, regenerated with a single click, or swapped with a different media asset from your library.
+9. **How many files can I upload at once?**
+   * *Answer:* You can drag and drop dozens of photos and videos simultaneously. Supported formats include JPG, PNG, WEBP, MP4, MOV, and WEBM.
+10. **Does ContentPilot work for takeout, cafes, and cloud kitchens?**
+    * *Answer:* Yes. ContentPilot supports fast-casual restaurants, sit-down dining, cafes, bakeries, food trucks, delivery-only cloud kitchens, and bar lounges. Your strategy adapts to your specific dining format.
+11. **Why does ContentPilot adapt differently for Instagram vs. TikTok?**
+    * *Answer:* Instagram audiences convert heavily on aesthetic text overlays, structured captions with clear calls-to-action (DM or bio link), and carousel saves. TikTok demands rapid pattern interrupts in the first 2 seconds, spoken-word natural scripting, and community curiosity hooks.
+12. **Can I export my weekly content plan?**
+    * *Answer:* Yes. You can copy the entire week's plan formatted for WhatsApp, Notion, or Slack in one click, download a plain text backup, or print a formatted kitchen dispatch run-sheet table for your staff.
+13. **Is there really a free plan?**
+    * *Answer:* Yes. The Free plan is $0/month and lets you upload up to 30 media assets and generate complete 7-day strategic content schedules without entering a credit card.
+14. **Do I need to connect my social media passwords or accounts?**
+    * *Answer:* No. You never connect social media accounts or enter social passwords into ContentPilot. Your social accounts remain 100% secure.
+15. **What happens if I change my restaurant's weekly goal mid-week?**
+    * *Answer:* You can update your weekly goal anytime in your restaurant profile or strategy settings and regenerate your 7-day schedule to match the new commercial objective.
+16. **How quickly does it take to generate my first 7-day plan?**
+    * *Answer:* Once you upload your initial batch of photos and videos, the multimodal AI categorizes them in seconds and produces a full 7-day strategy with platform adaptations in under a minute.
+
+---
+
+### 4.3 SaaS Multi-Column Footer Architecture
+
+The public landing page concludes with a clean, high-conviction multi-column SaaS footer (Buffer-inspired layout) using real internal links:
+* **Brand Column:** ContentPilot logo, product badge, positioning statement (*"AI content strategist for restaurants. What to post, why to post it, and which existing asset to use."*), and copyright statement.
+* **Product Column:** How It Works (`#how-it-works`), Live Strategy Run (`#strategy-demo`), Pricing (`#pricing`), FAQ (`#faq`), Restaurant App (`/app`).
+* **Features Column:** Content Library (`/app/content`), Gap Analysis (`/app/strategy`), 7-Day Strategy (`/app/strategy`), Platform Native Adaptations (`/app/strategy`), Printable Run-Sheets (`/app/strategy`).
+* **Company & Legal Column:** About Us (`/#how-it-works`), Privacy Policy (`/privacy`), Terms of Service (`/terms`), Status (`https://contentpilot-sandy.vercel.app`).
+* **Strict Link Integrity:** Zero dead links, zero external placeholders (`#`), and pure Lucide icon glyphs.
 
 ---
 
@@ -316,7 +426,74 @@ Users have granular control over every card in the 7-day schedule:
 
 ---
 
-# 11. Main App Views & Core Responsibilities
+---
+
+# 11. Real Restaurant Authentication, Onboarding & Workspace Isolation
+
+ContentPilot enforces a genuine multi-tenant workspace architecture where every restaurant owner signs up with their own business details, establishes an isolated workspace, and manages their own camera-roll media.
+
+### 11.1 Complete Removal of Operator Authentication
+* The previous "Operator Authentication" layer and operator passkeys (`contentpilot_op_2026`) have been completely removed from the user journey.
+* Restaurant owners and social managers must never be prompted for operator access or internal developer passwords.
+* The "Fast-Track via Benchmark Workspace" bypass has been permanently excised from `/login` and `/signup`.
+
+### 11.2 Real Restaurant Signup & Onboarding Flow
+The authenticated entry experience flows seamlessly through two dedicated steps:
+1. **User Authentication (`/signup` & `/login`)**: Standard email and password authentication. Saves persistent user session (`UserSession`) to local store and Supabase.
+2. **Step 1: Restaurant Profile Setup (`/onboarding`)**: Collects 6 core operational parameters:
+   * **Restaurant Name:** Full commercial trading name.
+   * **Location:** City, neighborhood, or state (e.g., "Victoria Island, Lagos" or "Downtown Austin").
+   * **Restaurant Type:** Selected from curated dining types (`restaurant`, `fast_food`, `cafe`, `bakery`, `food_delivery`, `bar_lounge`, `cloud_kitchen`, `other`).
+   * **Target Audience:** Freeform demographic and customer description (e.g., "Corporate workers, banking professionals, university students").
+   * **Primary Customer Action:** Desired diner behavior (`order_food`, `visit`, `whatsapp`, `book_table`, `discover`, `other`).
+   * **Business Description:** Narrative operational context describing culinary concept, signature dishes, vibe, and kitchen specialty.
+3. **Step 2: Active Weekly Goal Selection (`/onboarding/goal`)**:
+   * Chooses from commercial objectives (`get_more_orders`, `promote_menu`, `increase_awareness`, `build_trust`, `increase_engagement`, `promote_event`, `bring_customers_in`, `other`).
+   * Submits complete payload to `POST /api/onboarding`, creates isolated restaurant ID, initializes weekly goal, triggers asynchronous Google Sheets synchronization, and transitions directly to the authenticated dashboard (`/app`).
+
+### 11.3 Workspace Isolation & Demo Decoupling
+* **Dedicated Workspace State:** Every user owns their restaurant record, media assets, gap audit results, and 7-day strategy plans.
+* **Storage Scoping:** Media uploads (`/api/content/upload`) and library queries (`/api/content/assets`) strictly require and enforce `restaurantId`.
+* **Clean Empty States:** New workspaces start with a clean empty media library and an onboarding banner welcoming the owner to upload their first batch of photos and videos.
+* **Decoupling of Ovie's Kitchen:**
+  * Ovie's Kitchen (`rest-ovie`) is strictly isolated as static benchmark data for the public Landing Page Live Strategy Run demo.
+  * Ovie's Kitchen is **never** loaded as default state in authenticated routes (`/app`, `/app/content`, `/app/strategy`, `/app/restaurant`).
+  * All "Load Preset: Ovie's Kitchen" and "Reset to Benchmark" buttons have been completely removed.
+
+---
+
+# 12. Google Sheets Onboarding Synchronization
+
+To maintain unified executive tracking of all onboarded restaurants, ContentPilot features an automatic, non-blocking Google Sheets synchronization pipeline.
+
+* **Target Google Account:** `ischeduleit@gmail.com`
+* **Google Cloud Project:** `wurathepmm` via Google Workspace CLI (`gws`)
+* **Synchronization Trigger:** Fires automatically whenever a user completes the onboarding flow (`POST /api/onboarding`).
+* **Synchronized Columns:**
+  1. `Timestamp` (ISO 8601 UTC)
+  2. `User ID`
+  3. `User Email`
+  4. `Restaurant Name`
+  5. `Location`
+  6. `Restaurant Type`
+  7. `Target Audience`
+  8. `Primary Customer Action`
+  9. `Business Description`
+  10. `Initial Weekly Goal`
+  11. `Environment` (`production` / `development`)
+
+### Non-Blocking Architectural Resiliency
+* **Zero Failure Propagation:** If Google Sheets synchronization fails due to expired OAuth tokens, network timeouts, or quota limits, the user's onboarding **never fails or blocks**.
+* **Audit Trail:** All onboarding submissions and sync statuses are persistently logged to `.google-sheets-sync-log.json` on the server.
+* **Interactive CLI Authentication:** If `gws auth status` returns an expired token (`token_error: Bad Request`), the system safely logs the required interactive command for the administrator:
+  ```bash
+  gws auth login
+  ```
+  *(Select or log into `ischeduleit@gmail.com` to grant Google Sheets append permissions).*
+
+---
+
+# 13. Main App Views & Core Responsibilities
 
 ### 1. Home Dashboard (`/app`)
 * **Core Question Answered:** *"What should I do with my content this week?"*
@@ -325,21 +502,25 @@ Users have granular control over every card in the 7-day schedule:
   * Available Media Assets summary card *(Camera roll readiness statement)*
   * Pillar Balance & Content Gap alert
   * Quick-access preview to the current 7-Day Strategy
+  * Dynamic empty state onboarding banner for fresh workspaces
 
 ### 2. Content Hub (`/app/content`)
 * Full media management: upload, filter, sort, preview, and delete.
+* Uploads scoped to active `restaurantId`.
 * Feeds directly into AI analysis and strategy generation.
 
 ### 3. Strategy Workspace (`/app/strategy`)
 * 7-day interactive calendar view with daily drawers.
 * Controls for Keep, Edit, Regenerate, Replace, and Export.
+* WhatsApp markdown copy, plain text export, and printable kitchen dispatch run-sheet.
 
 ### 4. Restaurant Profile (`/app/restaurant`)
-* Manages core business parameters: Name, Location, Restaurant Type, Target Customers, Primary Customer Action, and Default Brand Context.
+* Manages core business parameters: Name, Location, Restaurant Type, Target Customers, Primary Customer Action, and Business Description.
+* Edits persist immediately to Supabase and active session.
 
 ---
 
-# 12. Database Schema (PostgreSQL on Supabase)
+# 14. Database Schema (PostgreSQL on Supabase)
 
 ```sql
 -- 1. Users
@@ -358,6 +539,7 @@ CREATE TABLE IF NOT EXISTS restaurants (
   restaurant_type VARCHAR(100) NOT NULL,
   target_audience TEXT,
   primary_customer_action VARCHAR(100) NOT NULL,
+  business_description TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );
 
@@ -429,7 +611,7 @@ CREATE TABLE IF NOT EXISTS content_plan_items (
 
 ---
 
-# 13. Scope Boundaries & MVP Protection
+# 15. Scope Boundaries & MVP Protection
 
 ### STRICTLY OUT OF SCOPE (Do NOT Build)
 * ❌ Native Instagram Graph API / TikTok Publishing APIs (Zero auto-publishing)
@@ -437,50 +619,60 @@ CREATE TABLE IF NOT EXISTS content_plan_items (
 * ❌ OAuth login with Instagram / TikTok
 * ❌ WhatsApp Cloud API integration or conversational auto-responders
 * ❌ Telegram bot automations
-* ❌ Payment gateways or billing systems
+* ❌ Payment gateways or billing systems (Pricing is strictly presentation only)
 * ❌ Multi-tenant agency hierarchies or client sign-off portals
 * ❌ Generic Buffer-style scheduling queues
 * ❌ Native iOS or Android mobile applications
 
 ---
 
-# 14. End-to-End Acceptance Test (Benchmark)
+# 16. Pure Lucide Icons Only (Zero Emojis Mandate)
 
-### Benchmark Restaurant Profile
+Across the entire application (UI layouts, modals, buttons, badges, notifications, copy, code constants, and generated content plans):
+* **Strictly Lucide Icons Only (`lucide-react`)**: All visual signifiers, status indicators, and actions must use clean, vector-rendered Lucide icons.
+* **Zero Emojis**: Absolutely no unicode emojis, pictograms, or sparkle icons in headlines, body copy, CTA labels, toasts, or AI prompts.
+
+---
+
+# 17. End-to-End Acceptance Test & Benchmark Separation
+
+### Public Benchmark Simulation (Landing Page Only)
 * **Restaurant:** Ovie's Kitchen
 * **Location:** Akure, Ondo State
 * **Target Audience:** Bankers, civil servants, 9-to-5 corporate workers, university students
 * **Primary Business Goal:** Increase weekday lunch orders
-* **Uploaded Test Batch:** ~15–20 culinary items (jollof rice prep, soup simmering, takeout containers)
+* **Purpose:** Live Strategy Run interactive demonstration only.
 
-### Verification Workflow
+### Real Authenticated Flow Verification
 ```text
-1. Visit Landing Page (Review Hero & Live Strategy Run demonstration)
+1. Visit Landing Page (Review Hero, Pricing, FAQ, Footer & Live Strategy Run)
        ↓
-2. Complete Lightweight Onboarding / Sign In
+2. Click "Start Free" or "Build My Content Plan" → Navigate to /signup
        ↓
-3. Navigate to Main App → Content
+3. Create account (Name, Email, Password)
        ↓
-4. Batch Upload raw photos and videos (Persisted in Supabase Storage)
+4. Complete Step 1: Restaurant Profile (/onboarding) with business description
        ↓
-5. Trigger AI Multimodal Analysis (Structured JSON classifications)
+5. Complete Step 2: Weekly Goal (/onboarding/goal)
        ↓
-6. View Content Gap Diagnostic (Identifies missing social proof / delivery footage)
+6. Sync payload to Google Sheets (non-blocking fallback to ischeduleit@gmail.com)
        ↓
-7. Generate 7-Day Strategy for "Increase weekday lunch orders"
+7. Lands on Authenticated Dashboard (/app) showing real restaurant name and empty state
        ↓
-8. Verify daily recommendations prioritize lunch conversion on Mon–Thu
+8. Navigate to Content (/app/content) and batch upload camera roll photos/videos
        ↓
-9. Inspect tailored Instagram vs. TikTok hooks and captions
+9. Multimodal AI categorizes culinary media into structured pillars and objectives
        ↓
-10. Test Edit, Regenerate, and Replace Asset controls
+10. Navigate to Strategy (/app/strategy) to generate personalized 7-Day Strategy
        ↓
-11. Export completed plan as formatted PDF and Copy to Clipboard
+11. Inspect Instagram overlays & TikTok spoken-word scripts; test Keep, Edit, Regen, Replace
+       ↓
+12. Copy formatted WhatsApp run-sheet or print kitchen dispatch schedule
 ```
 
 ---
 
-# 15. Development & Deployment Directives
+# 18. Development & Deployment Directives
 
 1. **Architecture Integrity:**
    * Never re-introduce content management or live media feeds onto the landing page.
@@ -489,17 +681,21 @@ CREATE TABLE IF NOT EXISTS content_plan_items (
    * Never commit Supabase service role keys, database passwords, or AI API keys to Git.
    * Access tokens must reside strictly in `.env.local` and Vercel Environment Variables.
 3. **Verification Before Commit:**
-   * Run type checking and production build (`npm run build`) before pushing changes.
+   * Run type checking (`npx tsc --noEmit`) and production build (`npm run build`) before pushing changes.
    * Ensure both local dev (`http://localhost:3000`) and live Vercel deployment stay in sync.
 
 ---
 
-# 16. Final Architectural Principle
+# 19. Final Architectural Principle
 
 ```text
 LANDING PAGE
     ↓
 SELL THE OUTCOME
+    ↓
+PRICING & FAQ & FOOTER
+    ↓
+COMMUNICATE COMMERCIAL VALUE & CONFIDENCE
     ↓
 LIVE STRATEGY RUN
     ↓
@@ -509,7 +705,7 @@ SIGN UP / LOGIN
     ↓
 RESTAURANT ONBOARDING
     ↓
-MAIN APP
+MAIN APP (PERSONAL WORKSPACE)
     │
     ├── HOME
     │
@@ -536,3 +732,4 @@ MAIN APP
 * **Strategy is the core output.**
 * **Live Strategy Run sells the intelligence.**
 * **The Main App does the actual work.**
+

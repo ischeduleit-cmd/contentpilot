@@ -46,63 +46,69 @@ export const CONTENT_PILLARS: { id: ContentPillar; label: string; description: s
 
 export const BUSINESS_GOALS: { id: BusinessGoalType; label: string; description: string }[] = [
   {
-    id: "increase_lunch_orders",
-    label: "Increase Weekday Lunch Orders",
-    description: "Target working professionals, corporate teams, and students between 11 AM and 2 PM.",
+    id: "get_more_orders",
+    label: "Get more orders",
+    description: "Generate immediate delivery, takeout, or dine-in orders with high-urgency conversion hooks.",
   },
   {
-    id: "promote_menu_item",
-    label: "Promote a Specific Menu Item",
-    description: "Drive targeted volume toward a high-margin or newly introduced specialty.",
-  },
-  {
-    id: "drive_dine_in",
-    label: "Drive Dine-in Foot Traffic",
-    description: "Fill tables during off-peak hours and promote the dine-in dining room experience.",
-  },
-  {
-    id: "build_trust",
-    label: "Build Trust & Social Proof",
-    description: "Showcase customer satisfaction, cleanliness, and food quality to win first-time buyers.",
+    id: "promote_menu",
+    label: "Promote menu",
+    description: "Spotlight specific dishes, signature recipes, chef specials, or new culinary additions.",
   },
   {
     id: "increase_awareness",
-    label: "Increase Local Brand Awareness",
-    description: "Expand discovery among nearby diners who have never ordered before.",
+    label: "Increase awareness",
+    description: "Expand local reach and introduce your kitchen to new diners in your area.",
+  },
+  {
+    id: "build_trust",
+    label: "Build trust",
+    description: "Showcase customer satisfaction, kitchen cleanliness, and authentic reviews to win new diners.",
   },
   {
     id: "increase_engagement",
-    label: "Boost Engagement & Community",
-    description: "Stimulate comments, shares, and culinary conversations on Instagram & TikTok.",
+    label: "Increase engagement",
+    description: "Stimulate comments, shares, saves, and conversations across Instagram and TikTok.",
   },
   {
     id: "promote_event",
-    label: "Promote Weekend Special or Event",
-    description: "Pack the house for weekend DJ sets, live music, brunch sessions, or tastings.",
+    label: "Promote event",
+    description: "Drive table reservations and excitement for weekend specials, tastings, or dining events.",
+  },
+  {
+    id: "bring_customers_in",
+    label: "Bring customers into restaurant",
+    description: "Attract foot traffic into the dining room during specific off-peak days and lunch rush hours.",
+  },
+  {
+    id: "increase_lunch_orders",
+    label: "Increase weekday lunch orders",
+    description: "Target working professionals, corporate teams, and students between 11 AM and 2 PM.",
   },
   {
     id: "other",
-    label: "Custom Business Goal",
-    description: "Tailor the plan around a custom marketing objective.",
+    label: "Other goal",
+    description: "Tailor the strategy around a custom restaurant marketing objective.",
   },
 ];
 
 export const RESTAURANT_TYPES: { id: RestaurantType; label: string }[] = [
-  { id: "restaurant", label: "Casual Dining & Restaurant" },
-  { id: "fast_food", label: "Quick Service & Fast Food" },
-  { id: "cafe_bakery", label: "Café, Bakery & Pastry" },
-  { id: "cloud_kitchen", label: "Cloud Kitchen & Delivery Brand" },
-  { id: "bar_lounge", label: "Bar, Grill & Lounge" },
-  { id: "other", label: "Other Food Service" },
+  { id: "restaurant", label: "Restaurant" },
+  { id: "fast_food", label: "Fast food" },
+  { id: "cafe", label: "Café" },
+  { id: "bakery", label: "Bakery" },
+  { id: "food_delivery", label: "Food delivery" },
+  { id: "bar_lounge", label: "Bar/lounge" },
+  { id: "other", label: "Other" },
 ];
 
 export const PRIMARY_ACTIONS: { id: PrimaryCustomerAction; label: string }[] = [
-  { id: "order_delivery", label: "Order Food for Delivery" },
-  { id: "whatsapp_order", label: "Send WhatsApp / Direct Message to Order" },
-  { id: "dine_in", label: "Visit Location for Dine-in" },
-  { id: "table_reservation", label: "Book a Table in Advance" },
-  { id: "brand_discovery", label: "Follow & Discover the Restaurant" },
-  { id: "other", label: "Other Action" },
+  { id: "order_food", label: "Order food" },
+  { id: "visit", label: "Visit" },
+  { id: "whatsapp", label: "WhatsApp" },
+  { id: "book_table", label: "Book table" },
+  { id: "discover", label: "Discover" },
+  { id: "other", label: "Other" },
 ];
 
 /**

@@ -10,9 +10,8 @@ import {
   Calendar,
   Store,
   LogOut,
-  ChevronRight,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { getStoredRestaurantProfile } from "@/lib/onboarding-store";
 
 export default function AppLayout({
   children,
@@ -20,6 +19,16 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const [restaurantName, setRestaurantName] = React.useState<string>("Restaurant");
+  const [location, setLocation] = React.useState<string>("");
+
+  React.useEffect(() => {
+    const profile = getStoredRestaurantProfile();
+    if (profile && profile.name) {
+      setRestaurantName(profile.name);
+      if (profile.location) setLocation(profile.location);
+    }
+  }, [pathname]);
 
   const navLinks = [
     {
@@ -74,9 +83,13 @@ export default function AppLayout({
             >
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-zinc-300 font-medium truncate max-w-[140px] sm:max-w-[200px]">
-                Ovie&apos;s Kitchen
+                {restaurantName}
               </span>
-              <span className="text-zinc-600 hidden md:inline">· Akure</span>
+              {location && (
+                <span className="text-zinc-600 hidden md:inline truncate max-w-[120px]">
+                  · {location}
+                </span>
+              )}
             </Link>
           </div>
 

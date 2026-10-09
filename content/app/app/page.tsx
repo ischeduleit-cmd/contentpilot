@@ -6,24 +6,18 @@ import {
   Target,
   FolderOpen,
   Calendar,
-  AlertTriangle,
   ArrowRight,
   Upload,
   CheckCircle2,
   Clock,
   ShieldAlert,
   Store,
-  RefreshCw,
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { ContentAsset } from "@/lib/db/schema";
-import {
-  BENCHMARK_RESTAURANT,
-  BENCHMARK_WEEKLY_PLAN,
-} from "@/lib/constants";
+import { ContentAsset, ContentPlanItem } from "@/lib/db/schema";
+import { BUSINESS_GOALS } from "@/lib/constants";
 import {
   getStoredGoalProfile,
   getStoredRestaurantProfile,
@@ -36,8 +30,7 @@ export default function AppHomePage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [restaurantProfile, setRestaurantProfile] = React.useState<any>(null);
   const [goalProfile, setGoalProfile] = React.useState<any>(null);
-
-  const [planItems, setPlanItems] = React.useState<any[]>(BENCHMARK_WEEKLY_PLAN);
+  const [planItems, setPlanItems] = React.useState<ContentPlanItem[]>([]);
 
   React.useEffect(() => {
     // Load local workspace overrides if present
@@ -46,14 +39,16 @@ export default function AppHomePage() {
     setRestaurantProfile(profile);
     setGoalProfile(goal);
 
+    const activeRestId = profile?.id || "default";
+
     // Fetch live asset counts, gap analysis, and strategy
     async function fetchData() {
       try {
         setIsLoading(true);
         const [assetsRes, gapRes, strategyRes] = await Promise.all([
-          fetch(`/api/content/assets?restaurantId=${BENCHMARK_RESTAURANT.id}`),
-          fetch(`/api/strategy/gap-analysis?restaurantId=${BENCHMARK_RESTAURANT.id}`),
-          fetch(`/api/strategy/generate?restaurantId=${BENCHMARK_RESTAURANT.id}`),
+          fetch(`/api/content/assets?restaurantId=${activeRestId}`),
+          fetch(`/api/strategy/gap-analysis?restaurantId=${activeRestId}`),
+          fetch(`/api/strategy/generate?restaurantId=${activeRestId}`),
         ]);
 
         const assetsData = await assetsRes.json();
@@ -80,15 +75,14 @@ export default function AppHomePage() {
     fetchData();
   }, []);
 
-  const restaurantName = restaurantProfile?.name || BENCHMARK_RESTAURANT.name;
-  const restaurantLocation = restaurantProfile?.location || BENCHMARK_RESTAURANT.location;
-  const activeGoalTitle =
-    goalProfile?.goal === "increase_lunch_orders" || !goalProfile
-      ? "Increase Weekday Lunch Orders"
-      : goalProfile.goal.replace(/_/g, " ").toUpperCase();
+  const restaurantName = restaurantProfile?.name || "Your Restaurant Workspace";
+  const restaurantLocation = restaurantProfile?.location || "Location Not Set";
+  const matchedGoal = BUSINESS_GOALS.find((g) => g.id === goalProfile?.goal);
+  const activeGoalTitle = matchedGoal?.label || "Get More Orders";
   const activeGoalDesc =
     goalProfile?.goalDescription ||
-    "Drive corporate lunchtime delivery and pre-orders Monday through Thursday before 12:30 PM.";
+    matchedGoal?.description ||
+    "Drive weekly dining orders, takeout, and delivery requests with compelling food content.";
 
   const photosCount = assets.filter(
     (a) => a.mediaType === "image" || a.mimeType?.startsWith("image/")
@@ -98,7 +92,7 @@ export default function AppHomePage() {
     (a) => a.mediaType === "video" || a.mimeType?.startsWith("video/")
   ).length;
 
-  const todayPlan = BENCHMARK_WEEKLY_PLAN[0]; // Monday active
+  const todayPlan = planItems.length > 0 ? planItems[0] : null;
 
   return (
     <div className="flex-1 bg-black text-white p-4 sm:p-6 md:p-8 space-y-8 font-sans selection:bg-white selection:text-black">
@@ -111,7 +105,9 @@ export default function AppHomePage() {
               <span>ACTIVE RESTAURANT WORKSPACE</span>
               <span className="text-zinc-600">/</span>
               <span className="text-white font-bold">{restaurantName}</span>
-              <span className="text-zinc-500">({restaurantLocation})</span>
+              {restaurantLocation && (
+                <span className="text-zinc-500">({restaurantLocation})</span>
+              )}
             </div>
             <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-white font-sans">
               What should I do with my content this week?
@@ -138,47 +134,74 @@ export default function AppHomePage() {
         </div>
 
         {/* Priority 1: High-Impact Next Action Banner */}
-        <div className="border border-white bg-zinc-950 p-5 sm:p-6 space-y-4 font-mono text-xs">
-          <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-            <div className="flex items-center gap-2 text-white font-bold text-sm">
-              <Zap className="w-4 h-4 text-white" />
-              <span>TOP RECOMMENDED ACTION FOR TODAY</span>
+        {todayPlan ? (
+          <div className="border border-white bg-zinc-950 p-5 sm:p-6 space-y-4 font-mono text-xs">
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+              <div className="flex items-center gap-2 text-white font-bold text-sm">
+                <Zap className="w-4 h-4 text-white" />
+                <span>TOP RECOMMENDED ACTION FOR TODAY</span>
+              </div>
+              <Badge variant="outline" className="border-white text-white font-mono text-[10px] uppercase">
+                HIGH IMPACT
+              </Badge>
             </div>
-            <Badge variant="outline" className="border-white text-white font-mono text-[10px] uppercase">
-              HIGH IMPACT
-            </Badge>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+              <div className="lg:col-span-8 space-y-2">
+                <div className="text-base font-bold text-white font-sans">
+                  Post Today&apos;s Content Hook by {todayPlan.recommendedTime || "11:30 AM"} on Instagram &amp; TikTok
+                </div>
+                <p className="text-xs text-zinc-300 font-sans leading-relaxed">
+                  Angle: &ldquo;{todayPlan.contentAngle}&rdquo; &mdash; {todayPlan.strategicRationale || "Targeting active diners during decision windows."}
+                </p>
+                {todayPlan.instagramHook && (
+                  <div className="text-[11px] text-zinc-500 pt-1 font-mono">
+                    Suggested Hook: <span className="text-zinc-300 italic font-sans">&ldquo;{todayPlan.instagramHook}&rdquo;</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="lg:col-span-4 flex flex-col sm:flex-row lg:flex-col gap-2 justify-end">
+                <Link href="/app/strategy">
+                  <Button variant="default" className="w-full font-mono text-xs justify-between">
+                    <span>Inspect Today&apos;s Copy &amp; Assets</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Button>
+                </Link>
+                <Link href="/app/content">
+                  <Button variant="secondary" className="w-full font-mono text-xs justify-between">
+                    <span>Manage Assigned Media</span>
+                    <FolderOpen className="w-3.5 h-3.5" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
           </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-            <div className="lg:col-span-8 space-y-2">
-              <div className="text-base font-bold text-white font-sans">
-                Post Today&apos;s Lunch Hook by 11:30 AM on Instagram Stories &amp; Reels
-              </div>
-              <p className="text-xs text-zinc-300 font-sans leading-relaxed">
-                Angle: &ldquo;{todayPlan.contentAngle}&rdquo; &mdash; Targets hungry office workers making lunch decisions.
-                Include direct WhatsApp ordering link in bio/sticker.
-              </p>
-              <div className="text-[11px] text-zinc-500 pt-1 font-mono">
-                Suggested Opening Hook: <span className="text-zinc-300 italic font-sans">&ldquo;{todayPlan.instagramHook}&rdquo;</span>
-              </div>
+        ) : (
+          <div className="border border-zinc-800 bg-zinc-950 p-6 space-y-4 font-mono text-xs">
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+              <span className="font-bold text-white text-sm">GET STARTED WITH YOUR STRATEGY</span>
+              <Badge variant="outline" className="text-[10px]">NEW WORKSPACE</Badge>
             </div>
-
-            <div className="lg:col-span-4 flex flex-col sm:flex-row lg:flex-col gap-2 justify-end">
-              <Link href="/app/strategy">
-                <Button variant="default" className="w-full font-mono text-xs justify-between">
-                  <span>Inspect Today&apos;s Copy &amp; Assets</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Button>
-              </Link>
+            <p className="text-zinc-300 text-xs font-sans leading-relaxed">
+              Upload your raw smartphone food videos and kitchen prep photos in the Content tab, then generate a custom 7-day schedule tailored to your business goal.
+            </p>
+            <div className="flex gap-3 pt-2">
               <Link href="/app/content">
-                <Button variant="secondary" className="w-full font-mono text-xs justify-between">
-                  <span>Manage Assigned Media</span>
-                  <FolderOpen className="w-3.5 h-3.5" />
+                <Button variant="default" size="sm" className="gap-1.5 font-mono text-xs">
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Upload Media Assets</span>
+                </Button>
+              </Link>
+              <Link href="/app/strategy">
+                <Button variant="secondary" size="sm" className="gap-1.5 font-mono text-xs">
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>Generate 7-Day Strategy</span>
                 </Button>
               </Link>
             </div>
           </div>
-        </div>
+        )}
 
         {/* 3 Metric Operational Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono text-xs">
@@ -197,7 +220,7 @@ export default function AppHomePage() {
               </p>
             </div>
             <div className="border-t border-zinc-900 pt-3 flex items-center justify-between">
-              <span className="text-[10px] text-zinc-500">Channel: WhatsApp / Delivery</span>
+              <span className="text-[10px] text-zinc-500">Commercial Target</span>
               <Link href="/app/strategy" className="text-white hover:underline text-[11px]">
                 Adjust Goal &rarr;
               </Link>
@@ -247,85 +270,24 @@ export default function AppHomePage() {
                   className={`text-[9px] uppercase shrink-0 font-mono ${
                     gapAnalysis?.status === "ready"
                       ? "border-emerald-600 text-emerald-300"
-                      : gapAnalysis?.status === "critical_gaps"
-                      ? "border-amber-600 text-amber-300"
-                      : "border-zinc-600 text-zinc-300"
+                      : "border-zinc-700 text-zinc-400"
                   }`}
                 >
-                  {gapAnalysis ? `${gapAnalysis.readinessScore}% Readiness` : "Auditing..."}
+                  {gapAnalysis?.status === "ready" ? "BALANCED" : "AUDIT ACTIVE"}
                 </Badge>
               </div>
-              <p className="text-[11px] text-zinc-400 font-sans leading-relaxed line-clamp-3">
-                {gapAnalysis?.headlineDiagnostic ||
-                  "Auditing available media against your weekly revenue goal."}
+              <p className="text-[11px] text-zinc-400 font-sans leading-relaxed">
+                {gapAnalysis?.commercialRationale ||
+                  gapAnalysis?.identifiedGaps[0]?.impactDescription ||
+                  "Ensure your media balances food sizzling dishes, customer proof, kitchen craft, and direct offers."}
               </p>
             </div>
             <div className="border-t border-zinc-900 pt-3 flex items-center justify-between">
-              <span className="text-[10px] text-zinc-400 truncate max-w-[190px]">
-                {gapAnalysis?.recommendedShootList[0]
-                  ? `Shoot: ${gapAnalysis.recommendedShootList[0].title}`
-                  : "All core pillars covered"}
-              </span>
-              <Link href="/app/strategy" className="text-white hover:underline text-[11px] shrink-0 font-mono">
-                Inspect Gaps &rarr;
+              <span className="text-[10px] text-zinc-500">Readiness: {gapAnalysis?.readinessScore ?? 85}%</span>
+              <Link href="/app/strategy" className="text-white hover:underline text-[11px]">
+                View Gap Audit &rarr;
               </Link>
             </div>
-          </div>
-        </div>
-
-        {/* 7-Day Strategy Sneak Peek */}
-        <div className="border border-zinc-800 bg-zinc-950 p-6 space-y-5 font-mono text-xs">
-          <div className="flex items-center justify-between border-b border-zinc-900 pb-4">
-            <div>
-              <h2 className="text-base font-bold text-white font-sans">
-                Active 7-Day Content Schedule Overview
-              </h2>
-              <p className="text-xs text-zinc-400 font-sans pt-0.5">
-                Synchronized specifically for {restaurantName} to convert lunch diners and weekend traffic.
-              </p>
-            </div>
-            <Link href="/app/strategy">
-              <Button variant="outline" size="sm" className="font-mono text-xs gap-1 border-zinc-700 hover:border-white">
-                <span>Open Interactive Board</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Button>
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
-            {planItems.map((day, idx) => {
-              const hasAsset = !!day.assetId;
-              return (
-                <div
-                  key={day.id || idx}
-                  className={`p-3 border flex flex-col justify-between space-y-2 ${
-                    idx === 0
-                      ? "border-white bg-black"
-                      : "border-zinc-800 bg-black/60"
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center justify-between text-[10px] pb-1 border-b border-zinc-900">
-                      <span className="font-bold text-white">{day.dayOfWeek ? day.dayOfWeek.slice(0, 3) : "Day"}</span>
-                      <span className="text-zinc-500">{day.recommendedTime ? day.recommendedTime.split(" ")[0] : "11:30"}</span>
-                    </div>
-                    <div className="text-[11px] text-zinc-300 font-sans font-medium line-clamp-2 pt-2">
-                      {day.contentAngle || day.instagramHook}
-                    </div>
-                  </div>
-                  <div className="pt-2 border-t border-zinc-900 flex items-center justify-between text-[9px] font-mono">
-                    <span className="uppercase text-zinc-500 truncate max-w-[65px]">
-                      {day.contentPillar?.replace(/_/g, " ")}
-                    </span>
-                    {hasAsset ? (
-                      <span className="text-emerald-400">Media OK</span>
-                    ) : (
-                      <span className="text-amber-400">Filming</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>

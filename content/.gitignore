@@ -26,6 +26,8 @@ yarn-error.log*
 .env*.local
 .env
 .dev-assets.json
+.dev-workspaces.json
+.google-sheets-sync-log.json
 
 # vercel
 .vercel

@@ -9,24 +9,21 @@ import {
   ArrowRight,
   ArrowLeft,
   CheckCircle2,
-  Clock,
-  RotateCcw,
-  Building2,
-  FileText,
-  ShieldCheck,
   TrendingUp,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { BUSINESS_GOALS, BENCHMARK_RESTAURANT } from "@/lib/constants";
+import { BUSINESS_GOALS } from "@/lib/constants";
 import {
   OnboardingGoalForm,
   getStoredGoalProfile,
   saveStoredGoalProfile,
   getStoredRestaurantProfile,
-  DEFAULT_GOAL_PROFILE,
+  saveStoredRestaurantProfile,
+  getStoredUser,
 } from "@/lib/onboarding-store";
 import { BusinessGoalType } from "@/lib/db/schema";
 
@@ -34,12 +31,19 @@ export default function OnboardingGoalPage() {
   const router = useRouter();
 
   const [restaurantProfile, setRestaurantProfile] = React.useState<any>(null);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isCompleted, setIsCompleted] = React.useState(false);
+  const [createdWorkspaceId, setCreatedWorkspaceId] = React.useState<string | null>(null);
 
   const [formData, setFormData] = React.useState<OnboardingGoalForm>(() => {
-    return getStoredGoalProfile() || { ...DEFAULT_GOAL_PROFILE };
+    return (
+      getStoredGoalProfile() || {
+        goal: "get_more_orders",
+        goalDescription: "Increase weekly dining orders and delivery requests with compelling meal visuals and timely offers.",
+        weekStart: new Date().toISOString().split("T")[0],
+      }
+    );
   });
-
-  const [isCompleted, setIsCompleted] = React.useState(false);
 
   React.useEffect(() => {
     const profile = getStoredRestaurantProfile();
@@ -51,21 +55,59 @@ export default function OnboardingGoalPage() {
     setFormData((prev) => ({
       ...prev,
       goal: goalId,
-      goalDescription:
-        goalId === "increase_lunch_orders"
-          ? "Increase delivery orders for corporate lunch combos from Monday to Thursday before 12:30 PM."
-          : selected?.description || "",
+      goalDescription: selected?.description || "",
     }));
   };
 
-  const handleResetBenchmark = () => {
-    setFormData({ ...DEFAULT_GOAL_PROFILE });
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
+
     saveStoredGoalProfile(formData);
-    setIsCompleted(true);
+
+    const currentUser = getStoredUser();
+    const currentProfile = getStoredRestaurantProfile();
+
+    try {
+      const res = await fetch("/api/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: currentUser?.email || "owner@restaurant.com",
+          restaurantName: currentProfile?.name || "My Restaurant",
+          location: currentProfile?.location || "City Area",
+          restaurantType: currentProfile?.restaurantType || "restaurant",
+          targetAudience: currentProfile?.targetAudience || "",
+          primaryCustomerAction: currentProfile?.primaryCustomerAction || "order_food",
+          businessDescription: currentProfile?.businessDescription || "",
+          goal: formData.goal,
+          goalDescription: formData.goalDescription,
+          weekStart: formData.weekStart,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.restaurant) {
+        setCreatedWorkspaceId(data.restaurant.id);
+        // Save restaurant ID and details to local state
+        saveStoredRestaurantProfile({
+          ...currentProfile,
+          id: data.restaurant.id,
+          userId: data.restaurant.userId,
+          name: data.restaurant.name,
+          location: data.restaurant.location,
+          restaurantType: data.restaurant.restaurantType,
+          targetAudience: data.restaurant.targetAudience,
+          primaryCustomerAction: data.restaurant.primaryCustomerAction,
+          businessDescription: data.restaurant.businessDescription,
+        });
+      }
+    } catch (err) {
+      console.warn("[Onboarding API Call Notice]:", err);
+    } finally {
+      setIsSubmitting(false);
+      setIsCompleted(true);
+    }
   };
 
   return (
@@ -87,19 +129,6 @@ export default function OnboardingGoalPage() {
             <p className="text-xs text-zinc-400 font-mono">
               Step 2 of 2: Define your primary commercial objective for the upcoming 7-day schedule.
             </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleResetBenchmark}
-              className="font-mono text-xs gap-1.5 border-zinc-700 hover:border-white"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-zinc-400" />
-              <span>Reset to Benchmark Goal</span>
-            </Button>
           </div>
         </div>
 
@@ -150,12 +179,12 @@ export default function OnboardingGoalPage() {
               </p>
             </div>
 
-            {/* High-Intent Business Goals Grid */}
+            {/* Business Goal Selector */}
             <div className="space-y-2">
               <label className="block text-xs font-mono uppercase tracking-wider text-zinc-300">
-                Select Primary Commercial Objective *
+                Weekly Commercial Goal *
               </label>
-              <div className="grid grid-cols-1 gap-2.5 font-mono text-xs">
+              <div className="grid grid-cols-1 gap-2 font-mono text-xs">
                 {BUSINESS_GOALS.map((goal) => {
                   const isSelected = formData.goal === goal.id;
                   return (
@@ -163,21 +192,17 @@ export default function OnboardingGoalPage() {
                       key={goal.id}
                       type="button"
                       onClick={() => handleGoalSelect(goal.id)}
-                      className={`p-3.5 text-left border transition-all flex flex-col gap-1.5 ${
+                      className={`p-3 text-left border transition-all flex flex-col gap-1 ${
                         isSelected
-                          ? "bg-white text-black border-white"
+                          ? "bg-white text-black font-semibold border-white"
                           : "bg-black text-zinc-400 border-zinc-800 hover:border-zinc-600 hover:text-white"
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs">{goal.label}</span>
+                        <span className="text-xs font-bold font-sans">{goal.label}</span>
                         {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-black" />}
                       </div>
-                      <p
-                        className={`text-[11px] font-sans leading-relaxed ${
-                          isSelected ? "text-zinc-700" : "text-zinc-500"
-                        }`}
-                      >
+                      <p className={`text-[11px] leading-relaxed font-sans ${isSelected ? "text-zinc-800" : "text-zinc-500"}`}>
                         {goal.description}
                       </p>
                     </button>
@@ -186,22 +211,20 @@ export default function OnboardingGoalPage() {
               </div>
             </div>
 
-            {/* Strategic Notes / Operational Nuance */}
+            {/* Custom Angle / Description */}
             <div className="space-y-2">
               <label className="block text-xs font-mono uppercase tracking-wider text-zinc-300">
-                Operational Context &amp; Constraints
+                Specific Strategic Focus / Campaign Notes
               </label>
               <Textarea
-                placeholder="e.g. Focus on pushing corporate lunch delivery combos from Mon to Thu before 12:30 PM. Emphasize firewood taste and prompt dispatch."
+                placeholder="e.g. Focus on our newly launched lunch specials and highlight fast 20-minute delivery for nearby office workers."
                 value={formData.goalDescription}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, goalDescription: e.target.value }))
-                }
+                onChange={(e) => setFormData((prev) => ({ ...prev, goalDescription: e.target.value }))}
                 rows={3}
                 className="font-sans text-sm"
               />
               <p className="text-[11px] text-zinc-500 font-mono">
-                Instructs the AI on specific menu specials, cutoff times, or promotional pricing.
+                Instructs the AI on specific menu specials, promotional offers, or timings.
               </p>
             </div>
 
@@ -212,8 +235,8 @@ export default function OnboardingGoalPage() {
                   Back
                 </Button>
               </Link>
-              <Button type="submit" variant="default" size="lg" className="gap-2 font-mono text-xs">
-                <span>Lock Goal &amp; Finalize Setup</span>
+              <Button type="submit" variant="default" size="lg" disabled={isSubmitting} className="gap-2 font-mono text-xs">
+                <span>{isSubmitting ? "Creating Workspace..." : "Lock Goal & Finalize Workspace"}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Button>
             </div>
@@ -232,10 +255,10 @@ export default function OnboardingGoalPage() {
 
               <div className="space-y-3 text-[11px] font-sans text-zinc-400 leading-relaxed">
                 <div className="space-y-1">
-                  <div className="text-[10px] text-zinc-500 uppercase font-mono">Target Profile:</div>
+                  <div className="text-[10px] text-zinc-500 uppercase font-mono">Target Establishment:</div>
                   <div className="text-white font-medium">
-                    {restaurantProfile?.name || "Ovie's Kitchen"} &bull;{" "}
-                    {restaurantProfile?.location || "Akure, Ondo State"}
+                    {restaurantProfile?.name || "Your Restaurant"} &bull;{" "}
+                    {restaurantProfile?.location || "Your Location"}
                   </div>
                 </div>
 
@@ -248,13 +271,13 @@ export default function OnboardingGoalPage() {
 
                 <div className="p-3 border border-zinc-900 bg-black space-y-2">
                   <div className="text-[10px] text-zinc-500 uppercase font-mono">
-                    Deterministic Plan Behavior:
+                    Deterministic Strategy Behavior:
                   </div>
                   <ul className="space-y-1.5 text-zinc-300 text-[11px] list-disc list-inside">
-                    <li>Prioritizes high-urgency lunch conversion hooks Mon&ndash;Thu at 11:30 AM.</li>
-                    <li>Schedules behind-the-scenes rush packaging clips to demonstrate speed.</li>
-                    <li>Generates distinct Instagram authoritative copy and TikTok POV sound hooks.</li>
-                    <li>Flags low social proof (&lt;10%) if customer review clips are missing.</li>
+                    <li>Aligns 7-day content schedule to your stated commercial objective.</li>
+                    <li>Schedules behind-the-scenes prep footage to build authenticity and appetite.</li>
+                    <li>Generates distinct Instagram conversion copy and TikTok POV sound hooks.</li>
+                    <li>Audits available media library and flags missing content pillars.</li>
                   </ul>
                 </div>
               </div>
@@ -264,23 +287,23 @@ export default function OnboardingGoalPage() {
             {isCompleted && (
               <div className="border border-white bg-zinc-950 p-5 space-y-4 font-mono text-xs animate-in fade-in">
                 <div className="flex items-center gap-2 text-white font-bold">
-                  <CheckCircle2 className="w-4 h-4 text-white" />
-                  <span>ONBOARDING COMPLETE</span>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span>WORKSPACE CREATED SUCCESSFULLY</span>
                 </div>
                 <p className="text-zinc-300 text-[11px] font-sans leading-relaxed">
-                  Restaurant profile and weekly goal have been saved to your local session. You are now ready
-                  to upload kitchen media and generate your 7-day conversion schedule.
+                  Your restaurant workspace and weekly goal are now live. You can upload your raw food photos and videos,
+                  audit content gaps, and build your 7-day conversion schedule.
                 </p>
                 <div className="pt-2 flex flex-col gap-2">
                   <Link href="/app">
                     <Button variant="default" className="w-full font-mono text-xs gap-1.5">
-                      <span>Enter Main App Dashboard</span>
+                      <span>Enter Your Workspace</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </Button>
                   </Link>
                   <Link href="/app/content">
                     <Button variant="secondary" className="w-full font-mono text-xs gap-1.5">
-                      <span>Go Directly to Content Upload</span>
+                      <span>Upload Raw Content</span>
                     </Button>
                   </Link>
                   <Link href="/app/strategy">
