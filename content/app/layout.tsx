@@ -6,7 +6,7 @@ import { Footer } from "@/components/footer";
 export const metadata: Metadata = {
   title: "ContentPilot — AI Content Strategist for Restaurant Owners",
   description:
-    "Autonomous content strategist converting raw food and kitchen footage into high-converting 7-day schedules for Instagram & TikTok.",
+    "Turn the restaurant photos and videos you already have into a goal-driven weekly content plan for Instagram and TikTok.",
   icons: {
     icon: "/favicon.ico",
   },
@@ -19,9 +19,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark font-sans">
-      <body className="min-h-screen bg-black text-white antialiased flex flex-col selection:bg-white selection:text-black">
+      <body className="site-root min-h-screen antialiased flex flex-col">
         <Navbar />
-        <main className="flex-1 flex flex-col">{children}</main>
+        <div className="flex-1 flex flex-col">{children}</div>
         <Footer />
       </body>
     </html>

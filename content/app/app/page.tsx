@@ -57,7 +57,7 @@ export default function AppHomePage() {
         }
 
         const gapData = await gapRes.json();
-        if (gapData.success && gapData.analysis) {
+        if (gapData.success && gapData.analysis?.totalAssetsCount > 0) {
           setGapAnalysis(gapData.analysis);
         }
 
@@ -78,11 +78,11 @@ export default function AppHomePage() {
   const restaurantName = restaurantProfile?.name || "Your Restaurant Workspace";
   const restaurantLocation = restaurantProfile?.location || "Location Not Set";
   const matchedGoal = BUSINESS_GOALS.find((g) => g.id === goalProfile?.goal);
-  const activeGoalTitle = matchedGoal?.label || "Get More Orders";
+  const activeGoalTitle = matchedGoal?.label || "Choose a weekly goal";
   const activeGoalDesc =
     goalProfile?.goalDescription ||
     matchedGoal?.description ||
-    "Drive weekly dining orders, takeout, and delivery requests with compelling food content.";
+    "Choose a business goal to give this week’s content a clear direction.";
 
   const photosCount = assets.filter(
     (a) => a.mediaType === "image" || a.mimeType?.startsWith("image/")
@@ -102,7 +102,7 @@ export default function AppHomePage() {
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 font-mono text-xs text-zinc-400">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>ACTIVE RESTAURANT WORKSPACE</span>
+              <span>YOUR RESTAURANT WORKSPACE</span>
               <span className="text-zinc-600">/</span>
               <span className="text-white font-bold">{restaurantName}</span>
               {restaurantLocation && (
@@ -113,7 +113,7 @@ export default function AppHomePage() {
               What should I do with my content this week?
             </h1>
             <p className="text-xs sm:text-sm text-zinc-400 font-mono">
-              Operational summary, media library status, and your highest-priority commercial action.
+              Your content, business goal, and next useful step for the week.
             </p>
           </div>
 
@@ -180,11 +180,11 @@ export default function AppHomePage() {
         ) : (
           <div className="border border-zinc-800 bg-zinc-950 p-6 space-y-4 font-mono text-xs">
             <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-              <span className="font-bold text-white text-sm">GET STARTED WITH YOUR STRATEGY</span>
+              <span className="font-bold text-white text-sm">START WITH YOUR RESTAURANT CONTENT</span>
               <Badge variant="outline" className="text-[10px]">NEW WORKSPACE</Badge>
             </div>
             <p className="text-zinc-300 text-xs font-sans leading-relaxed">
-              Upload your raw smartphone food videos and kitchen prep photos in the Content tab, then generate a custom 7-day schedule tailored to your business goal.
+              Upload a few restaurant photos or videos, then choose a weekly goal to build a plan around what you already have.
             </p>
             <div className="flex gap-3 pt-2">
               <Link href="/app/content">
@@ -196,7 +196,7 @@ export default function AppHomePage() {
               <Link href="/app/strategy">
                 <Button variant="secondary" size="sm" className="gap-1.5 font-mono text-xs">
                   <Calendar className="w-3.5 h-3.5" />
-                  <span>Generate 7-Day Strategy</span>
+                  <span>Choose a goal</span>
                 </Button>
               </Link>
             </div>
@@ -241,12 +241,12 @@ export default function AppHomePage() {
                 </span>
               </div>
               <p className="text-[11px] text-zinc-400 font-sans leading-relaxed">
-                Your camera roll organized and ready to publish. Every dish and prep clip powers your 7-day conversion schedule.
+                Your restaurant photos and videos are ready to inform a more purposeful weekly plan.
               </p>
             </div>
             <div className="border-t border-zinc-900 pt-3 flex items-center justify-between">
               <span className="text-[10px] text-emerald-400 flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> Storage Connected
+                <CheckCircle2 className="w-3 h-3" /> {assets.length ? "Content available" : "No content yet"}
               </span>
               <Link href="/app/content" className="text-white hover:underline text-[11px]">
                 Upload Content &rarr;
@@ -263,7 +263,7 @@ export default function AppHomePage() {
               </div>
               <div className="text-base font-bold text-white font-sans flex items-center justify-between">
                 <span className="truncate pr-2">
-                  {gapAnalysis?.identifiedGaps[0]?.title || "Pillars Evaluated"}
+                  {gapAnalysis?.identifiedGaps[0]?.title || (assets.length ? "Review content gaps" : "Add content to begin")}
                 </span>
                 <Badge
                   variant="outline"
@@ -273,17 +273,17 @@ export default function AppHomePage() {
                       : "border-zinc-700 text-zinc-400"
                   }`}
                 >
-                  {gapAnalysis?.status === "ready" ? "BALANCED" : "AUDIT ACTIVE"}
+                  {gapAnalysis?.status === "ready" ? "BALANCED" : gapAnalysis ? "GAPS FOUND" : "NOT STARTED"}
                 </Badge>
               </div>
               <p className="text-[11px] text-zinc-400 font-sans leading-relaxed">
                 {gapAnalysis?.commercialRationale ||
                   gapAnalysis?.identifiedGaps[0]?.impactDescription ||
-                  "Ensure your media balances food sizzling dishes, customer proof, kitchen craft, and direct offers."}
+                  "Upload restaurant photos or videos to see how your library supports the weekly goal."}
               </p>
             </div>
             <div className="border-t border-zinc-900 pt-3 flex items-center justify-between">
-              <span className="text-[10px] text-zinc-500">Readiness: {gapAnalysis?.readinessScore ?? 85}%</span>
+              <span className="text-[10px] text-zinc-500">Readiness: {gapAnalysis ? `${gapAnalysis.readinessScore}%` : "—"}</span>
               <Link href="/app/strategy" className="text-white hover:underline text-[11px]">
                 View Gap Audit &rarr;
               </Link>

@@ -87,11 +87,12 @@ export default function SignUpPage() {
 
           <form onSubmit={handleSignUp} className="space-y-4">
             <div className="space-y-1.5 font-mono text-xs">
-              <label className="text-zinc-400 flex items-center gap-1.5">
+              <label htmlFor="signup-restaurant" className="text-zinc-400 flex items-center gap-1.5">
                 <Store className="w-3.5 h-3.5 text-zinc-500" />
                 <span>Restaurant Name</span>
               </label>
               <Input
+                id="signup-restaurant"
                 type="text"
                 value={restaurantName}
                 onChange={(e) => setRestaurantName(e.target.value)}
@@ -102,11 +103,12 @@ export default function SignUpPage() {
             </div>
 
             <div className="space-y-1.5 font-mono text-xs">
-              <label className="text-zinc-400 flex items-center gap-1.5">
+              <label htmlFor="signup-location" className="text-zinc-400 flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-zinc-500" />
                 <span>City &amp; Location</span>
               </label>
               <Input
+                id="signup-location"
                 type="text"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
@@ -117,11 +119,12 @@ export default function SignUpPage() {
             </div>
 
             <div className="space-y-1.5 font-mono text-xs">
-              <label className="text-zinc-400 flex items-center gap-1.5">
+              <label htmlFor="signup-email" className="text-zinc-400 flex items-center gap-1.5">
                 <Mail className="w-3.5 h-3.5 text-zinc-500" />
                 <span>Account Email</span>
               </label>
               <Input
+                id="signup-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -132,11 +135,12 @@ export default function SignUpPage() {
             </div>
 
             <div className="space-y-1.5 font-mono text-xs">
-              <label className="text-zinc-400 flex items-center gap-1.5">
+              <label htmlFor="signup-password" className="text-zinc-400 flex items-center gap-1.5">
                 <Lock className="w-3.5 h-3.5 text-zinc-500" />
                 <span>Password</span>
               </label>
               <Input
+                id="signup-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

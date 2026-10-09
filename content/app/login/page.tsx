@@ -94,11 +94,12 @@ export default function LoginPage() {
 
           <form onSubmit={handleSignIn} className="space-y-4">
             <div className="space-y-1.5 font-mono text-xs">
-              <label className="text-zinc-400 flex items-center gap-1.5">
+              <label htmlFor="login-email" className="text-zinc-400 flex items-center gap-1.5">
                 <Mail className="w-3.5 h-3.5 text-zinc-500" />
                 <span>Email Address</span>
               </label>
               <Input
+                id="login-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -109,11 +110,12 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-1.5 font-mono text-xs">
-              <label className="text-zinc-400 flex items-center gap-1.5">
+              <label htmlFor="login-password" className="text-zinc-400 flex items-center gap-1.5">
                 <Lock className="w-3.5 h-3.5 text-zinc-500" />
                 <span>Password</span>
               </label>
               <Input
+                id="login-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
