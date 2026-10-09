@@ -10,56 +10,72 @@ import {
   Send,
   Save,
   CheckCircle2,
-  RotateCcw,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import {
   RESTAURANT_TYPES,
   PRIMARY_ACTIONS,
-  BENCHMARK_RESTAURANT,
 } from "@/lib/constants";
 import {
   getStoredRestaurantProfile,
   saveStoredRestaurantProfile,
-  DEFAULT_RESTAURANT_PROFILE,
   OnboardingRestaurantForm,
+  getStoredUser,
 } from "@/lib/onboarding-store";
 
 export default function AppRestaurantPage() {
   const [formData, setFormData] = React.useState<OnboardingRestaurantForm>(() => {
     return (
       getStoredRestaurantProfile() || {
-        name: BENCHMARK_RESTAURANT.name,
-        location: BENCHMARK_RESTAURANT.location,
-        restaurantType: BENCHMARK_RESTAURANT.type,
-        targetAudience: BENCHMARK_RESTAURANT.targetAudience,
-        primaryCustomerAction: BENCHMARK_RESTAURANT.primaryAction,
+        name: "My Restaurant",
+        location: "City Center",
+        restaurantType: "restaurant",
+        targetAudience: "Local diners & working professionals",
+        primaryCustomerAction: "order_food",
+        businessDescription: "",
       }
     );
   });
 
   const [isSaved, setIsSaved] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
 
   const handleInputChange = (field: keyof OnboardingRestaurantForm, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     setIsSaved(false);
   };
 
-  const handleResetToBenchmark = () => {
-    setFormData({ ...DEFAULT_RESTAURANT_PROFILE });
-    saveStoredRestaurantProfile({ ...DEFAULT_RESTAURANT_PROFILE });
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 2500);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
+
     saveStoredRestaurantProfile(formData);
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 2500);
+
+    try {
+      const user = getStoredUser();
+      await fetch("/api/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user?.email,
+          restaurantName: formData.name,
+          location: formData.location,
+          restaurantType: formData.restaurantType,
+          targetAudience: formData.targetAudience,
+          primaryCustomerAction: formData.primaryCustomerAction,
+          businessDescription: formData.businessDescription,
+        }),
+      });
+    } catch (err) {
+      console.warn("Failed to update restaurant profile remotely:", err);
+    } finally {
+      setIsSaving(false);
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 3000);
+    }
   };
 
   return (
@@ -80,19 +96,6 @@ export default function AppRestaurantPage() {
             <p className="text-xs sm:text-sm text-zinc-400 font-mono">
               The culinary context and customer actions that shape your 7-day conversion schedule.
             </p>
-          </div>
-
-          <div className="flex items-center gap-2 font-mono text-xs">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleResetToBenchmark}
-              className="gap-1.5 border-zinc-800 hover:border-white"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-zinc-400" />
-              <span>Reset to Benchmark</span>
-            </Button>
           </div>
         </div>
 
@@ -116,7 +119,7 @@ export default function AppRestaurantPage() {
               <Input
                 value={formData.name}
                 onChange={(e) => handleInputChange("name", e.target.value)}
-                placeholder="e.g. Ovie's Kitchen"
+                placeholder="e.g. Copper Pot Bistro"
                 required
                 className="bg-black border-zinc-800 text-white font-mono text-xs"
               />
@@ -134,7 +137,7 @@ export default function AppRestaurantPage() {
               <Input
                 value={formData.location}
                 onChange={(e) => handleInputChange("location", e.target.value)}
-                placeholder="e.g. Akure, Ondo State"
+                placeholder="e.g. Downtown Chicago, IL"
                 required
                 className="bg-black border-zinc-800 text-white font-mono text-xs"
               />
@@ -192,7 +195,7 @@ export default function AppRestaurantPage() {
               <Send className="w-3.5 h-3.5 text-zinc-400" />
               <span>Primary Customer Conversion Action</span>
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
               {PRIMARY_ACTIONS.map((action) => (
                 <button
                   type="button"
@@ -200,7 +203,7 @@ export default function AppRestaurantPage() {
                   onClick={() => handleInputChange("primaryCustomerAction", action.id)}
                   className={`p-3 border text-left transition-all ${
                     formData.primaryCustomerAction === action.id
-                      ? "border-white bg-black text-white"
+                      ? "border-white bg-black text-white font-bold"
                       : "border-zinc-800 bg-black/40 text-zinc-400 hover:text-white"
                   }`}
                 >
@@ -210,11 +213,29 @@ export default function AppRestaurantPage() {
             </div>
           </div>
 
+          {/* Business Description */}
+          <div className="space-y-2 font-mono text-xs">
+            <label className="text-zinc-300 flex items-center gap-1.5 font-bold">
+              <FileText className="w-3.5 h-3.5 text-zinc-400" />
+              <span>Business Description</span>
+            </label>
+            <Textarea
+              value={formData.businessDescription || ""}
+              onChange={(e) => handleInputChange("businessDescription", e.target.value)}
+              placeholder="e.g. Artisanal scratch kitchen specializing in wood-fired pizzas, slow-simmered sauces, and housemade pasta."
+              rows={3}
+              className="bg-black border-zinc-800 text-white font-mono text-xs resize-none"
+            />
+            <p className="text-[11px] text-zinc-500 font-sans">
+              Provides culinary nuance and unique craft details for your AI strategy items.
+            </p>
+          </div>
+
           {/* Save Action */}
           <div className="pt-4 border-t border-zinc-800 flex items-center justify-end gap-3 font-mono text-xs">
-            <Button type="submit" variant="default" className="gap-1.5">
+            <Button type="submit" variant="default" disabled={isSaving} className="gap-1.5">
               <Save className="w-3.5 h-3.5" />
-              <span>Save Restaurant Profile</span>
+              <span>{isSaving ? "Saving..." : "Save Restaurant Profile"}</span>
             </Button>
           </div>
         </form>

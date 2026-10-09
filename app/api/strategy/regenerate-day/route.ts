@@ -37,14 +37,17 @@ export async function POST(req: NextRequest) {
       matchedAsset = await getContentAssetById(assetId, restaurantId);
     }
 
+    const { getRestaurantById } = await import("@/lib/restaurant-repository");
+    const realRest = restaurantId !== BENCHMARK_RESTAURANT.id ? await getRestaurantById(restaurantId) : null;
+
     const regenerated = regenerateDayStrategy({
       dayOfWeek,
       pillar: "product",
       objective: "conversion",
       goal: goal as BusinessGoalType,
-      restaurantName: body.restaurantName || BENCHMARK_RESTAURANT.name,
-      location: body.location || BENCHMARK_RESTAURANT.location,
-      primaryAction: body.primaryCustomerAction || BENCHMARK_RESTAURANT.primaryAction,
+      restaurantName: body.restaurantName || realRest?.name || (restaurantId === BENCHMARK_RESTAURANT.id ? BENCHMARK_RESTAURANT.name : "Your Restaurant"),
+      location: body.location || realRest?.location || (restaurantId === BENCHMARK_RESTAURANT.id ? BENCHMARK_RESTAURANT.location : "Your City"),
+      primaryAction: body.primaryCustomerAction || realRest?.primaryCustomerAction || (restaurantId === BENCHMARK_RESTAURANT.id ? BENCHMARK_RESTAURANT.primaryAction : "order_food"),
       matchedAsset,
       time,
       variationIndex,

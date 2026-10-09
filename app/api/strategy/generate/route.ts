@@ -10,6 +10,7 @@ import {
   getLatestContentPlan,
 } from "@/lib/strategy-repository";
 import { BusinessGoalType } from "@/lib/db/schema";
+import { getRestaurantById } from "@/lib/restaurant-repository";
 
 export const dynamic = "force-dynamic";
 
@@ -21,24 +22,31 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const restaurantId = body.restaurantId || BENCHMARK_RESTAURANT.id;
-    const goal: BusinessGoalType = body.goal || BENCHMARK_RESTAURANT.activeGoal.goal;
+    const isPublicBenchmark = restaurantId === BENCHMARK_RESTAURANT.id;
+    const goal: BusinessGoalType = body.goal || "get_more_orders";
     const weekStart = body.weekStart;
 
     // Fetch existing media assets from repository
     let assets = await listContentAssets(restaurantId);
 
-    // If benchmark restaurant and library is empty, seed with sample benchmark assets
-    if (assets.length === 0 && restaurantId === BENCHMARK_RESTAURANT.id) {
+    // If public benchmark demo and library is empty, seed with sample benchmark assets
+    if (assets.length === 0 && isPublicBenchmark) {
       assets = SAMPLE_BENCHMARK_ASSETS;
+    }
+
+    // Lookup real restaurant profile if authenticated
+    let realRest = null;
+    if (!isPublicBenchmark) {
+      realRest = await getRestaurantById(restaurantId);
     }
 
     const input: StrategyGenerationInput = {
       restaurantId,
-      restaurantName: body.restaurantName || BENCHMARK_RESTAURANT.name,
-      location: body.location || BENCHMARK_RESTAURANT.location,
-      restaurantType: body.restaurantType || BENCHMARK_RESTAURANT.type,
-      targetAudience: body.targetAudience || BENCHMARK_RESTAURANT.targetAudience,
-      primaryCustomerAction: body.primaryCustomerAction || BENCHMARK_RESTAURANT.primaryAction,
+      restaurantName: body.restaurantName || realRest?.name || (isPublicBenchmark ? BENCHMARK_RESTAURANT.name : "Your Restaurant"),
+      location: body.location || realRest?.location || (isPublicBenchmark ? BENCHMARK_RESTAURANT.location : "Your City"),
+      restaurantType: body.restaurantType || realRest?.restaurantType || (isPublicBenchmark ? BENCHMARK_RESTAURANT.type : "restaurant"),
+      targetAudience: body.targetAudience || realRest?.targetAudience || (isPublicBenchmark ? BENCHMARK_RESTAURANT.targetAudience : "Local Diners"),
+      primaryCustomerAction: body.primaryCustomerAction || realRest?.primaryCustomerAction || (isPublicBenchmark ? BENCHMARK_RESTAURANT.primaryAction : "order_food"),
       goal,
       weekStart,
       availableAssets: assets,
@@ -74,7 +82,8 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const restaurantId = searchParams.get("restaurantId") || BENCHMARK_RESTAURANT.id;
-    const goal = (searchParams.get("goal") as BusinessGoalType) || BENCHMARK_RESTAURANT.activeGoal.goal;
+    const isPublicBenchmark = restaurantId === BENCHMARK_RESTAURANT.id;
+    const goal = (searchParams.get("goal") as BusinessGoalType) || "get_more_orders";
 
     const existing = await getLatestContentPlan(restaurantId);
 
@@ -88,14 +97,19 @@ export async function GET(req: NextRequest) {
 
     // Auto-generate if no plan exists yet
     let assets = await listContentAssets(restaurantId);
-    if (assets.length === 0 && restaurantId === BENCHMARK_RESTAURANT.id) {
+    if (assets.length === 0 && isPublicBenchmark) {
       assets = SAMPLE_BENCHMARK_ASSETS;
+    }
+
+    let realRest = null;
+    if (!isPublicBenchmark) {
+      realRest = await getRestaurantById(restaurantId);
     }
 
     const generated = await generateWeeklyContentStrategy({
       restaurantId,
-      restaurantName: BENCHMARK_RESTAURANT.name,
-      location: BENCHMARK_RESTAURANT.location,
+      restaurantName: realRest?.name || (isPublicBenchmark ? BENCHMARK_RESTAURANT.name : "Your Restaurant"),
+      location: realRest?.location || (isPublicBenchmark ? BENCHMARK_RESTAURANT.location : "Your City"),
       goal,
       availableAssets: assets,
     });

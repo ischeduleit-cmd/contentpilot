@@ -27,7 +27,8 @@ import {
   ContentObjective,
   ProcessingStatus,
 } from "@/lib/db/schema";
-import { BENCHMARK_RESTAURANT, CONTENT_PILLARS } from "@/lib/constants";
+import { CONTENT_PILLARS } from "@/lib/constants";
+import { getStoredRestaurantProfile } from "@/lib/onboarding-store";
 import { PRD_CONTENT_TYPES } from "@/lib/ai-analyzer";
 
 type FilterType = "all" | "photos" | "videos" | "needs_review";
@@ -76,12 +77,22 @@ export default function AppContentPage() {
   });
 
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [restaurantProfile, setRestaurantProfile] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    const profile = getStoredRestaurantProfile();
+    setRestaurantProfile(profile);
+  }, []);
+
+  const restaurantId = restaurantProfile?.id || "default";
 
   // Load assets from server API
   const loadAssets = React.useCallback(async () => {
+    const currentProfile = getStoredRestaurantProfile();
+    const activeRestId = currentProfile?.id || "default";
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/content/assets?restaurantId=${BENCHMARK_RESTAURANT.id}`);
+      const res = await fetch(`/api/content/assets?restaurantId=${activeRestId}`);
       const data = await res.json();
       if (data.success) {
         setAssets(data.assets || []);
@@ -172,7 +183,7 @@ export default function AppContentPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          restaurantId: BENCHMARK_RESTAURANT.id,
+          restaurantId,
           allPending: true,
         }),
       });
@@ -195,7 +206,7 @@ export default function AppContentPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          restaurantId: BENCHMARK_RESTAURANT.id,
+          restaurantId,
           assetId,
         }),
       });
@@ -223,7 +234,7 @@ export default function AppContentPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          restaurantId: BENCHMARK_RESTAURANT.id,
+          restaurantId,
           aiDescription: editForm.aiDescription,
           contentType: editForm.contentType,
           contentPillar: editForm.contentPillar,
@@ -269,7 +280,7 @@ export default function AppContentPage() {
   const executeUpload = async (item: UploadItem) => {
     const formData = new FormData();
     formData.append("file", item.file);
-    formData.append("restaurantId", BENCHMARK_RESTAURANT.id);
+    formData.append("restaurantId", restaurantId);
 
     try {
       const res = await fetch("/api/content/upload", {
@@ -317,7 +328,7 @@ export default function AppContentPage() {
     try {
       setIsDeleting(true);
       const res = await fetch(
-        `/api/content/assets?id=${assetToDelete.id}&restaurantId=${BENCHMARK_RESTAURANT.id}`,
+        `/api/content/assets?id=${assetToDelete.id}&restaurantId=${restaurantId}`,
         { method: "DELETE" }
       );
       if (res.ok) {

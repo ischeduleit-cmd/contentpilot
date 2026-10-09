@@ -8,7 +8,11 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const restaurantId = searchParams.get("restaurantId") || BENCHMARK_RESTAURANT.id;
+    const restaurantId = searchParams.get("restaurantId");
+
+    if (!restaurantId) {
+      return NextResponse.json({ error: "Restaurant ID is required." }, { status: 400 });
+    }
 
     const assets = await listContentAssets(restaurantId);
 
@@ -47,10 +51,10 @@ export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
-    const restaurantId = searchParams.get("restaurantId") || BENCHMARK_RESTAURANT.id;
+    const restaurantId = searchParams.get("restaurantId");
 
-    if (!id) {
-      return NextResponse.json({ error: "Asset ID is required" }, { status: 400 });
+    if (!id || !restaurantId) {
+      return NextResponse.json({ error: "Asset ID and Restaurant ID are required" }, { status: 400 });
     }
 
     const { getContentAssetById, deleteContentAssetRecord } = await import("@/lib/content-repository");

@@ -9,12 +9,12 @@ import {
   Users,
   Send,
   ArrowRight,
-  RotateCcw,
   CheckCircle2,
   Building2,
   Compass,
   ArrowLeft,
   Info,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,39 +23,31 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   RESTAURANT_TYPES,
   PRIMARY_ACTIONS,
-  BENCHMARK_RESTAURANT,
 } from "@/lib/constants";
 import {
   OnboardingRestaurantForm,
   getStoredRestaurantProfile,
   saveStoredRestaurantProfile,
-  DEFAULT_RESTAURANT_PROFILE,
 } from "@/lib/onboarding-store";
-import { RestaurantType, PrimaryCustomerAction } from "@/lib/db/schema";
 
 export default function OnboardingProfilePage() {
   const router = useRouter();
 
   const [formData, setFormData] = React.useState<OnboardingRestaurantForm>(() => {
-    return getStoredRestaurantProfile() || {
-      name: "",
-      location: "",
-      restaurantType: "restaurant",
-      targetAudience: "",
-      primaryCustomerAction: "whatsapp_order",
-    };
+    return (
+      getStoredRestaurantProfile() || {
+        name: "",
+        location: "",
+        restaurantType: "restaurant",
+        targetAudience: "",
+        primaryCustomerAction: "order_food",
+        businessDescription: "",
+      }
+    );
   });
-
-  const [hasLoadedPreset, setHasLoadedPreset] = React.useState(false);
 
   const handleInputChange = (field: keyof OnboardingRestaurantForm, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleLoadBenchmark = () => {
-    setFormData({ ...DEFAULT_RESTAURANT_PROFILE });
-    setHasLoadedPreset(true);
-    setTimeout(() => setHasLoadedPreset(false), 2500);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -87,19 +79,6 @@ export default function OnboardingProfilePage() {
             <p className="text-xs text-zinc-400 font-mono">
               Step 1 of 2: Define your establishment, local geography, and primary diner behavior.
             </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleLoadBenchmark}
-              className="font-mono text-xs gap-1.5 border-zinc-700 hover:border-white"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-zinc-400" />
-              <span>{hasLoadedPreset ? "Benchmark Loaded" : "Load Preset: Ovie's Kitchen"}</span>
-            </Button>
           </div>
         </div>
 
@@ -137,7 +116,7 @@ export default function OnboardingProfilePage() {
               </label>
               <Input
                 type="text"
-                placeholder="e.g. Ovie's Kitchen"
+                placeholder="e.g. Copper Pot Grill"
                 value={formData.name}
                 onChange={(e) => handleInputChange("name", e.target.value)}
                 required
@@ -151,29 +130,27 @@ export default function OnboardingProfilePage() {
             {/* Location & City */}
             <div className="space-y-2">
               <label className="block text-xs font-mono uppercase tracking-wider text-zinc-300">
-                Location (City, State / Neighborhood) *
+                Location (City, Neighborhood / Area) *
               </label>
-              <div className="relative">
-                <Input
-                  type="text"
-                  placeholder="e.g. Akure, Ondo State"
-                  value={formData.location}
-                  onChange={(e) => handleInputChange("location", e.target.value)}
-                  required
-                  className="font-sans text-sm"
-                />
-              </div>
+              <Input
+                type="text"
+                placeholder="e.g. Midtown Manhattan, New York"
+                value={formData.location}
+                onChange={(e) => handleInputChange("location", e.target.value)}
+                required
+                className="font-sans text-sm"
+              />
               <p className="text-[11px] text-zinc-500 font-mono">
-                Used to anchor authentic local references in captions (e.g. street names, office districts).
+                Used to anchor authentic local references in captions and geotargeted hooks.
               </p>
             </div>
 
             {/* Restaurant Type */}
             <div className="space-y-2">
               <label className="block text-xs font-mono uppercase tracking-wider text-zinc-300">
-                Operational Model &amp; Type
+                Establishment Type
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 font-mono text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 font-mono text-xs">
                 {RESTAURANT_TYPES.map((type) => {
                   const isSelected = formData.restaurantType === type.id;
                   return (
@@ -181,7 +158,7 @@ export default function OnboardingProfilePage() {
                       key={type.id}
                       type="button"
                       onClick={() => handleInputChange("restaurantType", type.id)}
-                      className={`p-3 text-left border transition-all ${
+                      className={`p-2.5 text-left border transition-all ${
                         isSelected
                           ? "bg-white text-black font-semibold border-white"
                           : "bg-black text-zinc-400 border-zinc-800 hover:border-zinc-600 hover:text-white"
@@ -197,26 +174,26 @@ export default function OnboardingProfilePage() {
             {/* Target Audience */}
             <div className="space-y-2">
               <label className="block text-xs font-mono uppercase tracking-wider text-zinc-300">
-                Target Audience Demographics
+                Target Customers
               </label>
               <Textarea
-                placeholder="e.g. Bankers, civil servants, 9-to-5 corporate workers, and university students."
+                placeholder="e.g. Young professionals, corporate lunch crowds, weekend families, and food lovers."
                 value={formData.targetAudience}
                 onChange={(e) => handleInputChange("targetAudience", e.target.value)}
                 rows={3}
                 className="font-sans text-sm"
               />
               <p className="text-[11px] text-zinc-500 font-mono">
-                Dictates the tone, urgency, and posting time windows (lunch break schedules, shift patterns).
+                Dictates the tone, urgency, and posting time windows in the strategy engine.
               </p>
             </div>
 
             {/* Primary Customer Action */}
             <div className="space-y-2">
               <label className="block text-xs font-mono uppercase tracking-wider text-zinc-300">
-                Primary Desired Customer Action
+                Desired Customer Action
               </label>
-              <div className="grid grid-cols-1 gap-2 font-mono text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 font-mono text-xs">
                 {PRIMARY_ACTIONS.map((action) => {
                   const isSelected = formData.primaryCustomerAction === action.id;
                   return (
@@ -224,7 +201,7 @@ export default function OnboardingProfilePage() {
                       key={action.id}
                       type="button"
                       onClick={() => handleInputChange("primaryCustomerAction", action.id)}
-                      className={`p-3 text-left border transition-all flex items-center justify-between ${
+                      className={`p-2.5 text-left border transition-all flex items-center justify-between ${
                         isSelected
                           ? "bg-white text-black font-semibold border-white"
                           : "bg-black text-zinc-400 border-zinc-800 hover:border-zinc-600 hover:text-white"
@@ -238,9 +215,26 @@ export default function OnboardingProfilePage() {
               </div>
             </div>
 
+            {/* Business Description */}
+            <div className="space-y-2">
+              <label className="block text-xs font-mono uppercase tracking-wider text-zinc-300">
+                Business Description
+              </label>
+              <Textarea
+                placeholder="e.g. Modern wood-fired pizzeria specializing in slow-fermented sourdough crusts, seasonal toppings, and craft cocktails."
+                value={formData.businessDescription || ""}
+                onChange={(e) => handleInputChange("businessDescription", e.target.value)}
+                rows={3}
+                className="font-sans text-sm"
+              />
+              <p className="text-[11px] text-zinc-500 font-mono">
+                Helps the AI craft authentic culinary angles and highlight your signature style.
+              </p>
+            </div>
+
             {/* Next Action */}
             <div className="pt-4 border-t border-zinc-900 flex items-center justify-between">
-              <span className="text-xs text-zinc-500 font-mono">Auto-saved to session state</span>
+              <span className="text-xs text-zinc-500 font-mono">Saved to your workspace session</span>
               <Button type="submit" variant="default" size="lg" className="gap-2 font-mono text-xs">
                 <span>Continue to Weekly Goal</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -261,25 +255,34 @@ export default function OnboardingProfilePage() {
 
               <div className="space-y-3 text-[11px] text-zinc-400 leading-relaxed font-sans">
                 <div className="space-y-1">
-                  <div className="text-[10px] text-zinc-500 uppercase font-mono">Operational Focus:</div>
+                  <div className="text-[10px] text-zinc-500 uppercase font-mono">Establishment:</div>
                   <div className="text-white font-medium">
-                    {formData.name || "Untitled Establishment"} &bull; {formData.location || "Location Pending"}
+                    {formData.name || "Your Restaurant"} &bull; {formData.location || "Your Location"}
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <div className="text-[10px] text-zinc-500 uppercase font-mono">Diner Profile:</div>
+                  <div className="text-[10px] text-zinc-500 uppercase font-mono">Target Customers:</div>
                   <div className="text-zinc-300">
-                    {formData.targetAudience || "No audience defined yet."}
+                    {formData.targetAudience || "Add your target diner demographics on the left."}
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <div className="text-[10px] text-zinc-500 uppercase font-mono">Conversion Channel:</div>
+                  <div className="text-[10px] text-zinc-500 uppercase font-mono">Primary Desired Action:</div>
                   <div className="text-zinc-300">
                     {PRIMARY_ACTIONS.find((a) => a.id === formData.primaryCustomerAction)?.label}
                   </div>
                 </div>
+
+                {formData.businessDescription && (
+                  <div className="space-y-1">
+                    <div className="text-[10px] text-zinc-500 uppercase font-mono">Culinary Specialty:</div>
+                    <div className="text-zinc-300 italic">
+                      &ldquo;{formData.businessDescription}&rdquo;
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="p-3 border border-zinc-900 bg-black space-y-2 text-[11px]">
@@ -292,15 +295,6 @@ export default function OnboardingProfilePage() {
                   a lunch dish is positioned around fast office delivery rather than leisurely weekend brunch.
                 </p>
               </div>
-            </div>
-
-            {/* Quick Benchmark Helper Card */}
-            <div className="border border-zinc-800 bg-black p-4 space-y-2 font-mono text-xs">
-              <div className="text-[10px] text-zinc-500 uppercase font-bold">Quick Verification Preset:</div>
-              <p className="text-zinc-400 text-[11px] font-sans leading-relaxed">
-                Click &ldquo;Load Preset: Ovie&rsquo;s Kitchen&rdquo; at the top right to instantly test with realistic data
-                (Akure corporate diners + lunch rush delivery).
-              </p>
             </div>
           </div>
         </form>

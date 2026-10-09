@@ -25,6 +25,7 @@ export const restaurants = pgTable("restaurants", {
   restaurantType: varchar("restaurant_type", { length: 100 }).notNull(),
   targetAudience: text("target_audience"),
   primaryCustomerAction: varchar("primary_customer_action", { length: 100 }).notNull(),
+  businessDescription: text("business_description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -98,12 +99,20 @@ export interface User {
 export type RestaurantType =
   | "restaurant"
   | "fast_food"
+  | "cafe"
+  | "bakery"
+  | "food_delivery"
+  | "bar_lounge"
   | "cafe_bakery"
   | "cloud_kitchen"
-  | "bar_lounge"
   | "other";
 
 export type PrimaryCustomerAction =
+  | "order_food"
+  | "visit"
+  | "whatsapp"
+  | "book_table"
+  | "discover"
   | "order_delivery"
   | "dine_in"
   | "whatsapp_order"
@@ -119,16 +128,20 @@ export interface Restaurant {
   restaurantType: RestaurantType;
   targetAudience: string;
   primaryCustomerAction: PrimaryCustomerAction;
+  businessDescription?: string;
   createdAt: string;
 }
 
 export type BusinessGoalType =
-  | "increase_lunch_orders"
-  | "promote_menu_item"
+  | "get_more_orders"
+  | "promote_menu"
   | "increase_awareness"
   | "build_trust"
   | "increase_engagement"
   | "promote_event"
+  | "bring_customers_in"
+  | "increase_lunch_orders"
+  | "promote_menu_item"
   | "drive_dine_in"
   | "other";
 

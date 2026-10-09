@@ -30,11 +30,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  BENCHMARK_RESTAURANT,
-  BENCHMARK_WEEKLY_PLAN,
-  BUSINESS_GOALS,
-} from "@/lib/constants";
+import { BUSINESS_GOALS } from "@/lib/constants";
 import {
   getStoredGoalProfile,
   getStoredRestaurantProfile,
@@ -42,19 +38,146 @@ import {
 import { GapAnalysisResult } from "@/lib/gap-analyzer";
 import { BusinessGoalType, ContentPlanItem, ContentAsset } from "@/lib/db/schema";
 
+const DEFAULT_INITIAL_PLAN: ContentPlanItem[] = [
+  {
+    id: "initial-mon",
+    contentPlanId: "plan-initial",
+    dayOfWeek: "Monday",
+    scheduledDate: new Date().toISOString().split("T")[0],
+    contentPillar: "product",
+    objective: "conversion",
+    contentAngle: "High-urgency lunch conversion hook showcasing your kitchen signature dish.",
+    recommendedTime: "11:30 AM",
+    status: "draft",
+    strategicRationale: "Targeting active diners during lunch decision windows with clear conversion call-to-action.",
+    instagramHook: "Skip the lunchtime line today.",
+    instagramCaption: "Fresh dishes moving fast out of the kitchen. Order now for prompt delivery.",
+    instagramCta: "Tap link in bio to order now.",
+    tiktokHook: "POV: What you should be having for lunch today.",
+    tiktokCaption: "Hot dishes ready to go. Freshly made daily.",
+    tiktokCta: "Link in bio to order directly.",
+  },
+  {
+    id: "initial-tue",
+    contentPlanId: "plan-initial",
+    dayOfWeek: "Tuesday",
+    scheduledDate: new Date().toISOString().split("T")[0],
+    contentPillar: "behind_the_scenes",
+    objective: "trust",
+    contentAngle: "Kitchen prep authenticity and fresh ingredient handling.",
+    recommendedTime: "10:30 AM",
+    status: "draft",
+    strategicRationale: "Demonstrates craft and quality ingredients to build trust with new diners.",
+    instagramHook: "Behind the kitchen pass this morning.",
+    instagramCaption: "Fresh ingredients prepped daily from scratch.",
+    instagramCta: "Save this post for your next meal out.",
+    tiktokHook: "Morning kitchen prep routine before the rush hits.",
+    tiktokCaption: "From prep table to your plate.",
+    tiktokCta: "Follow for daily menu specials.",
+  },
+  {
+    id: "initial-wed",
+    contentPlanId: "plan-initial",
+    dayOfWeek: "Wednesday",
+    scheduledDate: new Date().toISOString().split("T")[0],
+    contentPillar: "social_proof",
+    objective: "trust",
+    contentAngle: "Authentic dining room atmosphere and diner favorites.",
+    recommendedTime: "12:00 PM",
+    status: "draft",
+    strategicRationale: "Social proof reassures prospective diners of quality and portions.",
+    instagramHook: "Midweek lunch table favorites.",
+    instagramCaption: "Full dining room and satisfied guests. Come join us today.",
+    instagramCta: "DM us to reserve your table.",
+    tiktokHook: "What everyone is ordering today.",
+    tiktokCaption: "Midweek energy in the dining room.",
+    tiktokCta: "Tag a friend you need to come with.",
+  },
+  {
+    id: "initial-thu",
+    contentPlanId: "plan-initial",
+    dayOfWeek: "Thursday",
+    scheduledDate: new Date().toISOString().split("T")[0],
+    contentPillar: "education",
+    objective: "awareness",
+    contentAngle: "Culinary techniques and signature seasoning breakdown.",
+    recommendedTime: "2:00 PM",
+    status: "draft",
+    strategicRationale: "Educating diners on seasoning and technique positions your kitchen as culinary experts.",
+    instagramHook: "The secret to our signature seasoning.",
+    instagramCaption: "It all starts with deliberate technique and time-honored recipes.",
+    instagramCta: "Tell us your favorite menu item in the comments.",
+    tiktokHook: "Why we prep this dish differently.",
+    tiktokCaption: "Mastering the flavor profile every single day.",
+    tiktokCta: "Hit follow for kitchen secrets.",
+  },
+  {
+    id: "initial-fri",
+    contentPlanId: "plan-initial",
+    dayOfWeek: "Friday",
+    scheduledDate: new Date().toISOString().split("T")[0],
+    contentPillar: "promotion",
+    objective: "conversion",
+    contentAngle: "Weekend kickoff special and Friday rush celebration.",
+    recommendedTime: "4:00 PM",
+    status: "draft",
+    strategicRationale: "Captures weekend dining enthusiasm and drives evening dine-in and pickup.",
+    instagramHook: "Friday night plans, sorted.",
+    instagramCaption: "Tables are filling up fast for tonight. Reserve yours before the dinner rush.",
+    instagramCta: "Book your table now via WhatsApp.",
+    tiktokHook: "Friday dinner energy right here.",
+    tiktokCaption: "Weekend mode is officially activated.",
+    tiktokCta: "Come dine with us tonight.",
+  },
+  {
+    id: "initial-sat",
+    contentPlanId: "plan-initial",
+    dayOfWeek: "Saturday",
+    scheduledDate: new Date().toISOString().split("T")[0],
+    contentPillar: "community",
+    objective: "engagement",
+    contentAngle: "Vibrant dining room scene and shared feast platters.",
+    recommendedTime: "1:00 PM",
+    status: "draft",
+    strategicRationale: "Highlights weekend dining culture, gatherings, and relaxed celebration.",
+    instagramHook: "Weekend dining room moments.",
+    instagramCaption: "Big tables, honest food, and great company. Walk-ins welcome all weekend.",
+    instagramCta: "Visit us today.",
+    tiktokHook: "Saturday food tour at our favorite spot.",
+    tiktokCaption: "Best spot in town for weekend lunch.",
+    tiktokCta: "Share this with your weekend crew.",
+  },
+  {
+    id: "initial-sun",
+    contentPlanId: "plan-initial",
+    dayOfWeek: "Sunday",
+    scheduledDate: new Date().toISOString().split("T")[0],
+    contentPillar: "community",
+    objective: "retention",
+    contentAngle: "Sunday family tradition and relaxed dining wrap-up.",
+    recommendedTime: "3:00 PM",
+    status: "draft",
+    strategicRationale: "Closes the week with warm community connection and appreciation.",
+    instagramHook: "A restful Sunday tradition.",
+    instagramCaption: "Thank you to every family and guest who made us part of their weekend.",
+    instagramCta: "See you again this coming week.",
+    tiktokHook: "Ending the week on the best note possible.",
+    tiktokCaption: "Full tables, great food, restful Sunday.",
+    tiktokCta: "Follow for next week's specials.",
+  },
+];
+
 export default function AppStrategyPage() {
   const [selectedDay, setSelectedDay] = React.useState<string>("Monday");
   const [copiedKey, setCopiedKey] = React.useState<string | null>(null);
   const [restaurantProfile, setRestaurantProfile] = React.useState<any>(null);
   const [goalProfile, setGoalProfile] = React.useState<any>(null);
-  const [selectedGoal, setSelectedGoal] = React.useState<BusinessGoalType>(
-    BENCHMARK_RESTAURANT.activeGoal.goal
-  );
+  const [selectedGoal, setSelectedGoal] = React.useState<BusinessGoalType>("get_more_orders");
   const [gapAnalysis, setGapAnalysis] = React.useState<GapAnalysisResult | null>(null);
   const [isLoadingGaps, setIsLoadingGaps] = React.useState(true);
 
   // Strategy Generation State
-  const [planItems, setPlanItems] = React.useState<ContentPlanItem[]>(BENCHMARK_WEEKLY_PLAN);
+  const [planItems, setPlanItems] = React.useState<ContentPlanItem[]>(DEFAULT_INITIAL_PLAN);
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [isRegeneratingDay, setIsRegeneratingDay] = React.useState(false);
   const [libraryAssets, setLibraryAssets] = React.useState<ContentAsset[]>([]);
@@ -63,9 +186,9 @@ export default function AppStrategyPage() {
     briefsToCreateCount: number;
     totalAssetsEvaluated: number;
   }>({
-    matchedAssetsCount: 2,
-    briefsToCreateCount: 5,
-    totalAssetsEvaluated: 2,
+    matchedAssetsCount: 0,
+    briefsToCreateCount: 7,
+    totalAssetsEvaluated: 0,
   });
 
   // Phase 7: Platform Adaptation View State
@@ -100,9 +223,9 @@ export default function AppStrategyPage() {
     }
   }, []);
 
-  const restaurantId = restaurantProfile?.id || BENCHMARK_RESTAURANT.id;
-  const restaurantName = restaurantProfile?.name || BENCHMARK_RESTAURANT.name;
-  const restaurantLocation = restaurantProfile?.location || BENCHMARK_RESTAURANT.location;
+  const restaurantId = restaurantProfile?.id || "default";
+  const restaurantName = restaurantProfile?.name || "Your Restaurant";
+  const restaurantLocation = restaurantProfile?.location || "Your Location";
 
   // Fetch gap analysis whenever selectedGoal changes
   React.useEffect(() => {
@@ -163,7 +286,7 @@ export default function AppStrategyPage() {
     return (
       planItems.find((p) => p.dayOfWeek === selectedDay) ||
       planItems[0] ||
-      BENCHMARK_WEEKLY_PLAN[0]
+      null
     );
   }, [planItems, selectedDay]);
 
@@ -193,8 +316,8 @@ export default function AppStrategyPage() {
           restaurantName,
           goal: selectedGoal,
           location: restaurantLocation,
-          targetAudience: restaurantProfile?.targetAudience || BENCHMARK_RESTAURANT.targetAudience,
-          primaryCustomerAction: restaurantProfile?.primaryCustomerAction || BENCHMARK_RESTAURANT.primaryAction,
+          targetAudience: restaurantProfile?.targetAudience || "Local diners & working professionals",
+          primaryCustomerAction: restaurantProfile?.primaryCustomerAction || "order_food",
         }),
       });
       const data = await res.json();
@@ -232,7 +355,7 @@ export default function AppStrategyPage() {
           goal: selectedGoal,
           assetId: activePlanDay.assetId,
           time: activePlanDay.recommendedTime,
-          primaryCustomerAction: restaurantProfile?.primaryCustomerAction || BENCHMARK_RESTAURANT.primaryAction,
+          primaryCustomerAction: restaurantProfile?.primaryCustomerAction || "order_food",
         }),
       });
       const data = await res.json();

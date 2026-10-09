@@ -14,7 +14,11 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
-    const customRestaurantId = (formData.get("restaurantId") as string) || BENCHMARK_RESTAURANT.id;
+    const customRestaurantId = formData.get("restaurantId") as string;
+
+    if (!customRestaurantId) {
+      return NextResponse.json({ error: "Restaurant ID is required for upload." }, { status: 400 });
+    }
 
     if (!file) {
       return NextResponse.json({ error: "No file provided for upload" }, { status: 400 });
