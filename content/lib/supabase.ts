@@ -17,7 +17,7 @@ export const STORAGE_BUCKET = "content-assets";
  * Custom fetch implementation forcing IPv4 resolution to prevent
  * undici IPv6 connect timeouts on Linux container network bridges
  */
-function ipv4HttpsFetch(url: any, options: any = {}): Promise<any> {
+export function ipv4HttpsFetch(url: any, options: any = {}): Promise<any> {
   return new Promise((resolve, reject) => {
     const u = new URL(url.toString());
     const headers: Record<string, string> = {};
@@ -95,6 +95,7 @@ export function getSupabaseEnvConfig() {
 }
 
 let serverClientInstance: SupabaseClient | null = null;
+let browserClientInstance: SupabaseClient | null = null;
 
 /**
  * Server-side Supabase client with administrative / service-role access
@@ -129,12 +130,55 @@ export function getSupabaseServerClient(): SupabaseClient | null {
  * Client-side Supabase client for browser interactions
  */
 export function getSupabaseBrowserClient(): SupabaseClient | null {
+  if (typeof window === "undefined") return null;
+  if (browserClientInstance) return browserClientInstance;
   const { url, anonKey } = getSupabaseEnvConfig();
   if (!url || !anonKey) {
     return null;
   }
 
-  return createClient(url, anonKey);
+  browserClientInstance = createClient(url, anonKey, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+  });
+  return browserClientInstance;
+}
+
+/** Resolve and validate the current Supabase Auth user from a bearer token. */
+export async function getAuthenticatedSupabaseUser(request: Request) {
+  const authorization = request.headers.get("authorization");
+  const match = authorization?.match(/^Bearer\s+(.+)$/i);
+  if (!match) return null;
+
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return null;
+
+  const { data, error } = await supabase.auth.getUser(match[1]);
+  // Supabase should only issue a usable session after email confirmation. Enforce
+  // that invariant here as well so pending signups cannot create workspaces.
+  if (error || !data.user?.id || !data.user.email || !data.user.email_confirmed_at) return null;
+  const registration = data.user.user_metadata?.registration;
+  return {
+    id: data.user.id,
+    email: data.user.email,
+    registration: registration && typeof registration === "object" ? registration as Record<string, unknown> : null,
+  };
+}
+
+export async function verifyRestaurantOwner(request: Request, restaurantId: string) {
+  const user = await getAuthenticatedSupabaseUser(request);
+  if (!user) return { user: null, restaurant: null, status: 401 as const };
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return { user, restaurant: null, status: 503 as const };
+  const ownerId = await resolveApplicationUserId(supabase, user);
+  const { data, error } = await supabase.from("restaurants").select("id,user_id,name,location,restaurant_type,target_audience,primary_customer_action,business_description").eq("id", restaurantId).eq("user_id", ownerId).maybeSingle();
+  if (error) return { user, restaurant: null, status: 500 as const };
+  if (!data) return { user, restaurant: null, status: 403 as const };
+  return { user, restaurant: data, status: 200 as const };
+}
+
+export async function resolveApplicationUserId(supabase: SupabaseClient, user: { id: string; email: string }) {
+  const { data } = await supabase.from("users").select("id").eq("email", user.email).maybeSingle();
+  return data?.id || user.id;
 }
 
 /**

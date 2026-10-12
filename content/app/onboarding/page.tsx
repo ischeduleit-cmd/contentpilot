@@ -29,9 +29,11 @@ import {
   getStoredRestaurantProfile,
   saveStoredRestaurantProfile,
 } from "@/lib/onboarding-store";
+import { getSupabaseBrowserClient } from "@/lib/supabase";
 
 export default function OnboardingProfilePage() {
   const router = useRouter();
+  const [authReady, setAuthReady] = React.useState(false);
 
   const [formData, setFormData] = React.useState<OnboardingRestaurantForm>(() => {
     return (
@@ -50,6 +52,16 @@ export default function OnboardingProfilePage() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  React.useEffect(() => {
+    const checkAuth = async () => {
+      const supabase = getSupabaseBrowserClient();
+      const { data: { user } } = await supabase?.auth.getUser() || { data: { user: null } };
+      if (!user?.email_confirmed_at) router.replace("/login?next=%2Fonboarding");
+      else setAuthReady(true);
+    };
+    checkAuth().catch(() => router.replace("/login?next=%2Fonboarding"));
+  }, [router]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.location.trim()) {
@@ -57,8 +69,11 @@ export default function OnboardingProfilePage() {
       return;
     }
     saveStoredRestaurantProfile(formData);
-    router.push("/onboarding/goal");
+    const plan = new URLSearchParams(window.location.search).get("plan");
+    router.push(plan ? `/onboarding/goal?plan=${encodeURIComponent(plan)}` : "/onboarding/goal");
   };
+
+  if (!authReady) return <div className="flex min-h-[60vh] items-center justify-center text-sm text-zinc-600">Checking your sign-in…</div>;
 
   return (
     <div className="flex-1 bg-black text-white py-10 px-4 sm:px-6 selection:bg-white selection:text-black">
@@ -158,7 +173,8 @@ export default function OnboardingProfilePage() {
                       key={type.id}
                       type="button"
                       onClick={() => handleInputChange("restaurantType", type.id)}
-                      className={`p-2.5 text-left border transition-all ${
+                      aria-pressed={isSelected}
+                      className={`onboarding-choice p-2.5 text-left border transition-all ${
                         isSelected
                           ? "bg-white text-black font-semibold border-white"
                           : "bg-black text-zinc-400 border-zinc-800 hover:border-zinc-600 hover:text-white"

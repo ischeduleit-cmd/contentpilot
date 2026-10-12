@@ -8,7 +8,7 @@ import {
   analyzeContentAsset,
   RestaurantAnalysisContext,
 } from "@/lib/ai-analyzer";
-import { BENCHMARK_RESTAURANT } from "@/lib/constants";
+import { verifyRestaurantOwner } from "@/lib/supabase";
 import { ContentAsset } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,10 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const restaurantId: string = body.restaurantId || BENCHMARK_RESTAURANT.id;
+    const restaurantId: string = body.restaurantId;
+    if (!restaurantId) return NextResponse.json({ error: "Restaurant ID is required." }, { status: 400 });
+    const access = await verifyRestaurantOwner(req, restaurantId);
+    if (!access.user || !access.restaurant) return NextResponse.json({ error: "Workspace access denied." }, { status: access.status });
     const { assetId, assetIds, allPending, restaurantContext } = body;
 
     const context: Partial<RestaurantAnalysisContext> = {

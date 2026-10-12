@@ -1,215 +1,190 @@
+import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServerClient } from "@/lib/supabase";
+import { getAuthenticatedSupabaseUser, getSupabaseServerClient, resolveApplicationUserId } from "@/lib/supabase";
 import { syncOnboardingToGoogleSheets } from "@/lib/google-sheets-sync";
-import fs from "fs";
-import path from "path";
-import crypto from "crypto";
 
-const DEV_WORKSPACES_FILE = path.join(process.cwd(), ".dev-workspaces.json");
+export const dynamic = "force-dynamic";
 
-interface LocalWorkspaceData {
-  users: Record<string, { id: string; email: string; createdAt: string }>;
-  restaurants: Record<string, any>;
-  weeklyGoals: Record<string, any>;
+function stableUuid(value: string) {
+  const bytes = createHash("sha256").update(value).digest().subarray(0, 16);
+  bytes[6] = (bytes[6] & 0x0f) | 0x50;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-function readLocalWorkspaces(): LocalWorkspaceData {
-  try {
-    if (fs.existsSync(DEV_WORKSPACES_FILE)) {
-      const raw = fs.readFileSync(DEV_WORKSPACES_FILE, "utf-8");
-      return JSON.parse(raw);
-    }
-  } catch (err) {
-    console.warn("[Local Workspaces] Read notice:", err);
-  }
-  return { users: {}, restaurants: {}, weeklyGoals: {} };
-}
-
-function writeLocalWorkspaces(data: LocalWorkspaceData) {
-  try {
-    fs.writeFileSync(DEV_WORKSPACES_FILE, JSON.stringify(data, null, 2), "utf-8");
-  } catch (err) {
-    console.warn("[Local Workspaces] Write notice:", err);
-  }
+function authRequired() {
+  return NextResponse.json({ success: false, error: "Sign in is required." }, { status: 401 });
 }
 
 export async function POST(req: NextRequest) {
+  const user = await getAuthenticatedSupabaseUser(req);
+  if (!user) return authRequired();
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return NextResponse.json({ success: false, error: "Workspace database is not configured." }, { status: 503 });
+
   try {
-    const body = await req.json();
-    const {
-      email,
-      restaurantName,
-      location,
-      restaurantType = "restaurant",
-      targetAudience = "",
-      primaryCustomerAction = "order_food",
-      businessDescription = "",
-      goal = "get_more_orders",
-      goalDescription = "",
-      weekStart = new Date().toISOString().split("T")[0],
-    } = body;
-
-    if (!restaurantName || !location) {
-      return NextResponse.json(
-        { success: false, error: "Restaurant name and location are required." },
-        { status: 400 }
-      );
+    const body: unknown = await req.json();
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ success: false, error: "Please check the restaurant details." }, { status: 400 });
+    }
+    const values = body as Record<string, unknown>;
+    const pending = user.registration || {};
+    const fromBodyOrPending = (key: string) => values[key] ?? pending[key];
+    const name = typeof fromBodyOrPending("restaurantName") === "string" ? String(fromBodyOrPending("restaurantName")).trim() : "";
+    const location = typeof fromBodyOrPending("location") === "string" ? String(fromBodyOrPending("location")).trim() : "";
+    const restaurantType = typeof fromBodyOrPending("restaurantType") === "string" ? String(fromBodyOrPending("restaurantType")) : "restaurant";
+    const targetAudience = typeof fromBodyOrPending("targetAudience") === "string" ? String(fromBodyOrPending("targetAudience")).trim() : "";
+    const primaryCustomerAction = typeof fromBodyOrPending("primaryCustomerAction") === "string" ? String(fromBodyOrPending("primaryCustomerAction")) : "order_food";
+    const businessDescription = typeof fromBodyOrPending("businessDescription") === "string" ? String(fromBodyOrPending("businessDescription")).trim() : "";
+    const goal = typeof fromBodyOrPending("goal") === "string" ? String(fromBodyOrPending("goal")) : "get_more_orders";
+    const goalDescription = typeof fromBodyOrPending("goalDescription") === "string" ? String(fromBodyOrPending("goalDescription")).trim() : "";
+    const weekStart = typeof values.weekStart === "string" ? values.weekStart : new Date().toISOString().slice(0, 10);
+    const allowedTypes = new Set(["restaurant", "fast_food", "cafe", "bakery", "food_delivery", "bar_lounge", "other"]);
+    const allowedActions = new Set(["order_food", "visit", "whatsapp", "book_table", "discover", "other"]);
+    const allowedGoals = new Set(["get_more_orders", "promote_menu", "increase_awareness", "build_trust", "increase_engagement", "promote_event", "bring_customers_in", "increase_lunch_orders", "other"]);
+    if (!name || !location || name.length > 255 || location.length > 255 || !targetAudience || !businessDescription || businessDescription.length > 5000 || targetAudience.length > 1000 || !allowedTypes.has(restaurantType) || !allowedActions.has(primaryCustomerAction) || !allowedGoals.has(goal) || goalDescription.length > 2000) {
+      return NextResponse.json({ success: false, error: "Please check the restaurant name, location, and description." }, { status: 400 });
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart) || Number.isNaN(Date.parse(`${weekStart}T00:00:00Z`))) {
+      return NextResponse.json({ success: false, error: "Choose a valid week start date." }, { status: 400 });
     }
 
-    const cleanEmail = email && email.includes("@") ? email.trim().toLowerCase() : `restaurant_${Date.now()}@contentpilot.app`;
-    const userId = crypto.randomUUID();
-    const restaurantId = crypto.randomUUID();
-    const goalId = crypto.randomUUID();
-    const nowIso = new Date().toISOString();
+    const now = new Date().toISOString();
+    const normalizedEmail = user.email.trim().toLowerCase();
+    const { data: matchedUser, error: lookupUserError } = await supabase.from("users").select("id").eq("email", normalizedEmail).maybeSingle();
+    if (lookupUserError) throw lookupUserError;
+    const applicationUserId = matchedUser?.id || user.id;
+    const { error: userError } = await supabase.from("users").upsert({ id: applicationUserId, email: normalizedEmail, created_at: now }, { onConflict: "id" });
+    if (userError) throw userError;
+    const { data: priorRestaurant, error: restaurantLookupError } = await supabase.from("restaurants").select("id").eq("user_id", applicationUserId).limit(1).maybeSingle();
+    if (restaurantLookupError) throw restaurantLookupError;
+    const restaurantId = priorRestaurant?.id || user.id;
+    const goalId = stableUuid(`${restaurantId}:${weekStart}`);
 
-    const localData = readLocalWorkspaces();
-
-    // 1. Check or create User locally
-    let existingUser = Object.values(localData.users).find((u) => u.email === cleanEmail);
-    const activeUserId = existingUser ? existingUser.id : userId;
-    if (!existingUser) {
-      localData.users[activeUserId] = { id: activeUserId, email: cleanEmail, createdAt: nowIso };
-    }
-
-    // 2. Create Restaurant profile
-    const restaurantRecord = {
+    const baseRestaurantRecord = {
       id: restaurantId,
-      userId: activeUserId,
-      name: restaurantName.trim(),
-      location: location.trim(),
-      restaurantType,
-      targetAudience: targetAudience.trim(),
-      primaryCustomerAction,
-      businessDescription: businessDescription.trim(),
-      createdAt: nowIso,
+      user_id: applicationUserId,
+      name,
+      location,
+      restaurant_type: restaurantType,
+      target_audience: targetAudience,
+      primary_customer_action: primaryCustomerAction,
     };
-    localData.restaurants[restaurantId] = restaurantRecord;
-
-    // 3. Create Weekly Goal
-    const goalRecord = {
-      id: goalId,
-      restaurantId,
-      goal,
-      goalDescription: goalDescription.trim(),
-      weekStart,
-      createdAt: nowIso,
+    const fullRestaurantRecord = {
+      ...baseRestaurantRecord,
+      business_description: businessDescription,
     };
-    localData.weeklyGoals[goalId] = goalRecord;
-    writeLocalWorkspaces(localData);
 
-    // 4. Mirror to Supabase if configured
-    const supabase = getSupabaseServerClient();
-    if (supabase) {
-      try {
-        // Upsert user
-        await supabase.from("users").upsert({
-          id: activeUserId,
-          email: cleanEmail,
-          created_at: nowIso,
-        });
+    let restaurant: any = null;
+    const { data: fullData, error: fullError } = await supabase
+      .from("restaurants")
+      .upsert(fullRestaurantRecord, { onConflict: "id" })
+      .select("*")
+      .maybeSingle();
 
-        // Insert restaurant
-        await supabase.from("restaurants").upsert({
-          id: restaurantId,
-          user_id: activeUserId,
-          name: restaurantName.trim(),
-          location: location.trim(),
-          restaurant_type: restaurantType,
-          target_audience: targetAudience.trim(),
-          primary_customer_action: primaryCustomerAction,
-          business_description: businessDescription.trim(),
-          created_at: nowIso,
-        });
-
-        // Insert weekly goal
-        await supabase.from("weekly_goals").upsert({
-          id: goalId,
-          restaurant_id: restaurantId,
-          goal,
-          goal_description: goalDescription.trim(),
-          week_start: weekStart,
-          created_at: nowIso,
-        });
-      } catch (dbErr) {
-        console.warn("[Onboarding DB Mirror Warning]:", dbErr);
-      }
+    if (fullError && (fullError.code === "PGRST204" || fullError.message?.includes("business_description"))) {
+      const { data: baseData, error: baseError } = await supabase
+        .from("restaurants")
+        .upsert(baseRestaurantRecord, { onConflict: "id" })
+        .select("*")
+        .single();
+      if (baseError || !baseData) throw baseError || new Error("restaurant_save_failed");
+      restaurant = baseData;
+    } else if (fullError || !fullData) {
+      throw fullError || new Error("restaurant_save_failed");
+    } else {
+      restaurant = fullData;
     }
+    if (restaurant.user_id !== applicationUserId) return NextResponse.json({ success: false, error: "Workspace ownership could not be verified." }, { status: 403 });
 
-    // 5. Trigger Google Sheets synchronization (non-blocking)
-    syncOnboardingToGoogleSheets({
-      createdAt: nowIso,
-      userId: activeUserId,
-      email: cleanEmail,
-      restaurantName: restaurantName.trim(),
-      location: location.trim(),
-      restaurantType,
-      targetAudience: targetAudience.trim(),
-      primaryCustomerAction,
-      businessDescription: businessDescription.trim(),
-      weeklyGoal: goal,
-    }).catch((err) => {
-      console.warn("[Google Sheets Sync Background Notice]:", err);
-    });
+    const goalRecord = { id: goalId, restaurant_id: restaurantId, goal, goal_description: goalDescription, week_start: weekStart, created_at: now };
+    const { error: goalError } = await supabase.from("weekly_goals").upsert(goalRecord, { onConflict: "id" });
+    if (goalError) throw goalError;
+
+    let sheetsStatus: "synced" | "already_synced" | "pending_configuration" | "failed" = "pending_configuration";
+    try {
+      const result = await syncOnboardingToGoogleSheets({
+        createdAt: restaurant.created_at || now, userId: user.id, email: normalizedEmail, restaurantName: name, location,
+        restaurantType, targetAudience, primaryCustomerAction, businessDescription, weeklyGoal: goal,
+      });
+      sheetsStatus = result.status;
+    } catch (error) {
+      sheetsStatus = "failed";
+      const code = error instanceof Error && /^google_[a-z0-9_]+$/.test(error.message) ? error.message : "google_sync_unexpected_error";
+      console.error("[Sheets Sync] Registration record could not be synced.", { code });
+    }
+    const { error: syncStatusError } = await supabase.from("restaurants").update({
+      sheets_sync_status: sheetsStatus,
+      sheets_synced_at: sheetsStatus === "synced" || sheetsStatus === "already_synced" ? now : null,
+    }).eq("id", restaurantId).eq("user_id", applicationUserId);
+    if (syncStatusError && syncStatusError.code !== "PGRST204") {
+      console.warn("[Sheets Sync] Notice: Could not persist sheets_sync_status.", { code: syncStatusError.code || "sheets_status_persist_skipped" });
+    }
 
     return NextResponse.json({
       success: true,
-      user: { id: activeUserId, email: cleanEmail },
-      restaurant: restaurantRecord,
-      goal: goalRecord,
+      user: { id: applicationUserId, email: user.email },
+      restaurant: {
+        id: restaurant.id, userId: user.id, name: restaurant.name,
+        location: restaurant.location, restaurantType: restaurant.restaurant_type,
+        targetAudience: restaurant.target_audience || "", primaryCustomerAction: restaurant.primary_customer_action,
+        businessDescription: restaurant.business_description || businessDescription, createdAt: restaurant.created_at,
+      },
+      goal: { id: goalId, restaurantId, goal, goalDescription, weekStart },
+      sheetsSync: { status: sheetsStatus },
     });
-  } catch (error: any) {
-    console.error("[Onboarding API Error]:", error);
-    return NextResponse.json(
-      { success: false, error: error.message || "Failed to complete onboarding." },
-      { status: 500 }
-    );
+  } catch {
+    console.error("[Onboarding] Could not persist authenticated restaurant workspace.");
+    return NextResponse.json({ success: false, error: "We could not save your restaurant details. Please try again." }, { status: 500 });
   }
 }
 
 export async function GET(req: NextRequest) {
+  const user = await getAuthenticatedSupabaseUser(req);
+  if (!user) return authRequired();
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return NextResponse.json({ success: false, error: "Workspace database is not configured." }, { status: 503 });
   try {
+    const applicationUserId = await resolveApplicationUserId(supabase, user);
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
     const restaurantId = searchParams.get("restaurantId");
-
-    const localData = readLocalWorkspaces();
-    let restaurant = null;
-
-    if (restaurantId && localData.restaurants[restaurantId]) {
-      restaurant = localData.restaurants[restaurantId];
-    } else if (userId) {
-      restaurant = Object.values(localData.restaurants).find((r: any) => r.userId === userId);
-    }
-
-    // Check Supabase if not found locally
-    if (!restaurant) {
-      const supabase = getSupabaseServerClient();
-      if (supabase) {
-        let query = supabase.from("restaurants").select("*");
-        if (restaurantId) query = query.eq("id", restaurantId);
-        else if (userId) query = query.eq("user_id", userId);
-        const { data } = await query.limit(1).maybeSingle();
-        if (data) {
-          restaurant = {
-            id: data.id,
-            userId: data.user_id,
-            name: data.name,
-            location: data.location,
-            restaurantType: data.restaurant_type,
-            targetAudience: data.target_audience,
-            primaryCustomerAction: data.primary_customer_action,
-            businessDescription: data.business_description,
-            createdAt: data.created_at,
-          };
+    let query = supabase.from("restaurants").select("*").eq("user_id", applicationUserId);
+    if (restaurantId) query = query.eq("id", restaurantId);
+    const { data, error } = await query.limit(1).maybeSingle();
+    if (error) throw error;
+    if (!data) return NextResponse.json({ success: false, restaurant: null, pendingRegistration: user.registration }, { status: 404 });
+    let sheetsStatus = data.sheets_sync_status || "pending_configuration";
+    if (sheetsStatus !== "synced" && sheetsStatus !== "already_synced") {
+      const { data: goal } = await supabase.from("weekly_goals").select("goal").eq("restaurant_id", data.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (goal) {
+        try {
+          const sync = await syncOnboardingToGoogleSheets({
+            createdAt: data.created_at, userId: user.id, email: user.email,
+            restaurantName: data.name, location: data.location, restaurantType: data.restaurant_type,
+            targetAudience: data.target_audience || "", primaryCustomerAction: data.primary_customer_action,
+            businessDescription: data.business_description || (user.registration?.businessDescription as string) || "", weeklyGoal: goal.goal,
+          });
+          sheetsStatus = sync.status;
+          const { error: updateSyncError } = await supabase.from("restaurants").update({ sheets_sync_status: sheetsStatus, sheets_synced_at: sync.synced ? new Date().toISOString() : null }).eq("id", data.id).eq("user_id", applicationUserId);
+          if (updateSyncError && updateSyncError.code !== "PGRST204") {
+            console.warn("[Sheets Sync] Notice: Could not update sheets_sync_status.", updateSyncError.message);
+          }
+        } catch (error) {
+          sheetsStatus = "failed";
+          const code = error instanceof Error && /^google_[a-z0-9_]+$/.test(error.message) ? error.message : "google_sync_unexpected_error";
+          console.error("[Sheets Sync] Pending registration retry failed.", { code });
         }
       }
     }
-
-    return NextResponse.json({
-      success: true,
-      restaurant,
-    });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true, restaurant: {
+      id: data.id, userId: user.id, name: data.name, location: data.location,
+      restaurantType: data.restaurant_type, targetAudience: data.target_audience || "",
+      primaryCustomerAction: data.primary_customer_action, businessDescription: data.business_description || (user.registration?.businessDescription as string) || "",
+      createdAt: data.created_at,
+    }, sheetsSync: { status: sheetsStatus } });
+  } catch {
+    console.error("[Onboarding] Could not load authenticated restaurant workspace.");
+    return NextResponse.json({ success: false, error: "We could not load your restaurant workspace." }, { status: 500 });
   }
 }

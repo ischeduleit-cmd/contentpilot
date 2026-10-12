@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listContentAssets } from "@/lib/content-repository";
-import { getSupabaseEnvConfig } from "@/lib/supabase";
-import { BENCHMARK_RESTAURANT } from "@/lib/constants";
+import { getSupabaseEnvConfig, verifyRestaurantOwner } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +12,8 @@ export async function GET(req: NextRequest) {
     if (!restaurantId) {
       return NextResponse.json({ error: "Restaurant ID is required." }, { status: 400 });
     }
+    const access = await verifyRestaurantOwner(req, restaurantId);
+    if (!access.restaurant) return NextResponse.json({ error: "Workspace access denied." }, { status: access.status });
 
     const assets = await listContentAssets(restaurantId);
 
@@ -56,6 +57,8 @@ export async function DELETE(req: NextRequest) {
     if (!id || !restaurantId) {
       return NextResponse.json({ error: "Asset ID and Restaurant ID are required" }, { status: 400 });
     }
+    const access = await verifyRestaurantOwner(req, restaurantId);
+    if (!access.restaurant) return NextResponse.json({ error: "Workspace access denied." }, { status: access.status });
 
     const { getContentAssetById, deleteContentAssetRecord } = await import("@/lib/content-repository");
     const { deleteAssetFromSupabase } = await import("@/lib/supabase");

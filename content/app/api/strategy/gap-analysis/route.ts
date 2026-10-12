@@ -4,6 +4,7 @@ import { analyzeContentGaps } from "@/lib/gap-analyzer";
 import { BENCHMARK_RESTAURANT, SAMPLE_BENCHMARK_ASSETS } from "@/lib/constants";
 import { BusinessGoalType } from "@/lib/db/schema";
 import { getRestaurantById } from "@/lib/restaurant-repository";
+import { verifyRestaurantOwner } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -12,11 +13,15 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const restaurantId = searchParams.get("restaurantId") || BENCHMARK_RESTAURANT.id;
     const goalParam = (searchParams.get("goal") as BusinessGoalType) || "get_more_orders";
+    const isPublicBenchmark = restaurantId === BENCHMARK_RESTAURANT.id;
+    if (!isPublicBenchmark) {
+      const access = await verifyRestaurantOwner(req, restaurantId);
+      if (!access.restaurant) return NextResponse.json({ error: "Workspace access denied." }, { status: access.status });
+    }
 
     // Fetch live assets for the restaurant
     let assets = await listContentAssets(restaurantId);
 
-    const isPublicBenchmark = restaurantId === BENCHMARK_RESTAURANT.id;
     let evaluatedAssets = assets;
     let restaurantContext: any = null;
 

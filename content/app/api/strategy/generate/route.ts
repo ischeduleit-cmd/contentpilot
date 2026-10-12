@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { BENCHMARK_RESTAURANT, SAMPLE_BENCHMARK_ASSETS } from "@/lib/constants";
+import { BENCHMARK_RESTAURANT } from "@/lib/constants";
 import { listContentAssets } from "@/lib/content-repository";
 import {
   generateWeeklyContentStrategy,
@@ -10,7 +10,9 @@ import {
   getLatestContentPlan,
 } from "@/lib/strategy-repository";
 import { BusinessGoalType } from "@/lib/db/schema";
-import { getRestaurantById } from "@/lib/restaurant-repository";
+import { verifyRestaurantOwner } from "@/lib/supabase";
+import { getSupabaseServerClient } from "@/lib/supabase";
+import { getWorkspacePlan } from "@/lib/entitlements";
 
 export const dynamic = "force-dynamic";
 
@@ -21,32 +23,40 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const restaurantId = body.restaurantId || BENCHMARK_RESTAURANT.id;
-    const isPublicBenchmark = restaurantId === BENCHMARK_RESTAURANT.id;
+    const restaurantId = body.restaurantId;
+    if (!restaurantId || restaurantId === BENCHMARK_RESTAURANT.id) return NextResponse.json({ success: false, error: "A restaurant workspace is required." }, { status: 400 });
+    const access = await verifyRestaurantOwner(req, restaurantId);
+    if (!access.user || !access.restaurant) return NextResponse.json({ success: false, error: "Workspace access denied." }, { status: access.status });
     const goal: BusinessGoalType = body.goal || "get_more_orders";
     const weekStart = body.weekStart;
+    const billingDb = getSupabaseServerClient();
+    const plan = billingDb ? await getWorkspacePlan(billingDb, access.user.id, restaurantId) : "free";
+    if (plan === "free") {
+      const now = new Date();
+      const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+      const allowedWeekStart = monday.toISOString().slice(0, 10);
+      if (typeof weekStart !== "string" || weekStart !== allowedWeekStart) {
+        return NextResponse.json({ success: false, error: "The Free plan creates one strategy for the current week." }, { status: 403 });
+      }
+      const existingPlan = await getLatestContentPlan(restaurantId);
+      if (existingPlan?.plan.weekStart === allowedWeekStart) {
+        return NextResponse.json({ success: false, error: "Your Free plan strategy for this week already exists." }, { status: 403 });
+      }
+    }
 
     // Fetch existing media assets from repository
     let assets = await listContentAssets(restaurantId);
 
-    // If public benchmark demo and library is empty, seed with sample benchmark assets
-    if (assets.length === 0 && isPublicBenchmark) {
-      assets = SAMPLE_BENCHMARK_ASSETS;
-    }
-
-    // Lookup real restaurant profile if authenticated
-    let realRest = null;
-    if (!isPublicBenchmark) {
-      realRest = await getRestaurantById(restaurantId);
-    }
+    const realRest = access.restaurant;
 
     const input: StrategyGenerationInput = {
       restaurantId,
-      restaurantName: body.restaurantName || realRest?.name || (isPublicBenchmark ? BENCHMARK_RESTAURANT.name : "Your Restaurant"),
-      location: body.location || realRest?.location || (isPublicBenchmark ? BENCHMARK_RESTAURANT.location : "Your City"),
-      restaurantType: body.restaurantType || realRest?.restaurantType || (isPublicBenchmark ? BENCHMARK_RESTAURANT.type : "restaurant"),
-      targetAudience: body.targetAudience || realRest?.targetAudience || (isPublicBenchmark ? BENCHMARK_RESTAURANT.targetAudience : "Local Diners"),
-      primaryCustomerAction: body.primaryCustomerAction || realRest?.primaryCustomerAction || (isPublicBenchmark ? BENCHMARK_RESTAURANT.primaryAction : "order_food"),
+      restaurantName: realRest.name,
+      location: realRest.location,
+      restaurantType: realRest.restaurant_type,
+      targetAudience: realRest.target_audience || "Local diners",
+      primaryCustomerAction: realRest.primary_customer_action,
       goal,
       weekStart,
       availableAssets: assets,
@@ -81,7 +91,10 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const restaurantId = searchParams.get("restaurantId") || BENCHMARK_RESTAURANT.id;
+    const restaurantId = searchParams.get("restaurantId");
+    if (!restaurantId) return NextResponse.json({ success: false, error: "Restaurant ID is required." }, { status: 400 });
+    const access = await verifyRestaurantOwner(req, restaurantId);
+    if (!access.restaurant) return NextResponse.json({ success: false, error: "Workspace access denied." }, { status: access.status });
     const existing = await getLatestContentPlan(restaurantId);
 
     // A read should never silently create and persist a plan. Generation is an

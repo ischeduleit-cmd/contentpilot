@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { uploadAssetToSupabase, getSupabaseEnvConfig } from "@/lib/supabase";
-import { insertContentAsset } from "@/lib/content-repository";
+import { uploadAssetToSupabase, getSupabaseEnvConfig, getSupabaseServerClient, verifyRestaurantOwner } from "@/lib/supabase";
+import { insertContentAsset, listContentAssets } from "@/lib/content-repository";
 import { ContentAsset, MediaType } from "@/lib/db/schema";
-import { BENCHMARK_RESTAURANT } from "@/lib/constants";
+import { getPlan } from "@/lib/plans";
+import { getWorkspacePlan } from "@/lib/entitlements";
 
 // Accepted MIME types per requirement
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -18,6 +19,16 @@ export async function POST(req: NextRequest) {
 
     if (!customRestaurantId) {
       return NextResponse.json({ error: "Restaurant ID is required for upload." }, { status: 400 });
+    }
+    const access = await verifyRestaurantOwner(req, customRestaurantId);
+    if (!access.user || !access.restaurant) return NextResponse.json({ error: "Workspace access denied." }, { status: access.status });
+    const supabase = getSupabaseServerClient();
+    if (!supabase) return NextResponse.json({ error: "Workspace database is not configured." }, { status: 503 });
+    const planId = await getWorkspacePlan(supabase, access.user.id, customRestaurantId);
+    const plan = getPlan(planId);
+    const existingAssets = await listContentAssets(customRestaurantId);
+    if (existingAssets.length >= plan.maxAssets) {
+      return NextResponse.json({ error: `Your ${plan.name} plan allows up to ${plan.maxAssets} content assets.`, code: "ASSET_LIMIT_REACHED", plan: plan.id, limit: plan.maxAssets }, { status: 403 });
     }
 
     if (!file) {

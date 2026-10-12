@@ -15,6 +15,7 @@ import {
 const RESTAURANT_STORAGE_KEY = "contentpilot_restaurant_profile";
 const GOAL_STORAGE_KEY = "contentpilot_weekly_goal";
 const USER_STORAGE_KEY = "contentpilot_user_session";
+const REGISTERED_USER_KEY = "contentpilot_registered_user";
 
 export interface OnboardingRestaurantForm {
   id?: string;
@@ -52,8 +53,20 @@ export function saveStoredUser(user: UserSession): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+    localStorage.setItem(REGISTERED_USER_KEY, JSON.stringify(user));
   } catch (e) {
     console.error("Failed to store user session", e);
+  }
+}
+
+export function getRegisteredUser(email: string): UserSession | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(REGISTERED_USER_KEY);
+    const user = raw ? JSON.parse(raw) as UserSession : null;
+    return user?.email === email ? user : null;
+  } catch {
+    return null;
   }
 }
 

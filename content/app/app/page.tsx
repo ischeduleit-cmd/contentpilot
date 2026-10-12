@@ -22,6 +22,7 @@ import {
   getStoredGoalProfile,
   getStoredRestaurantProfile,
 } from "@/lib/onboarding-store";
+import { authenticatedFetch } from "@/lib/authenticated-fetch";
 import { GapAnalysisResult } from "@/lib/gap-analyzer";
 
 export default function AppHomePage() {
@@ -46,9 +47,9 @@ export default function AppHomePage() {
       try {
         setIsLoading(true);
         const [assetsRes, gapRes, strategyRes] = await Promise.all([
-          fetch(`/api/content/assets?restaurantId=${activeRestId}`),
-          fetch(`/api/strategy/gap-analysis?restaurantId=${activeRestId}`),
-          fetch(`/api/strategy/generate?restaurantId=${activeRestId}`),
+          authenticatedFetch(`/api/content/assets?restaurantId=${activeRestId}`),
+          authenticatedFetch(`/api/strategy/gap-analysis?restaurantId=${activeRestId}`),
+          authenticatedFetch(`/api/strategy/generate?restaurantId=${activeRestId}`),
         ]);
 
         const assetsData = await assetsRes.json();
@@ -178,23 +179,23 @@ export default function AppHomePage() {
             </div>
           </div>
         ) : (
-          <div className="border border-zinc-800 bg-zinc-950 p-6 space-y-4 font-mono text-xs">
+          <div className="workspace-empty-state border border-zinc-800 bg-zinc-950 p-6 space-y-4 font-mono text-xs">
             <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
               <span className="font-bold text-white text-sm">START WITH YOUR RESTAURANT CONTENT</span>
-              <Badge variant="outline" className="text-[10px]">NEW WORKSPACE</Badge>
+              <Badge variant="outline" className="workspace-new-badge text-[10px]">NEW WORKSPACE</Badge>
             </div>
             <p className="text-zinc-300 text-xs font-sans leading-relaxed">
               Upload a few restaurant photos or videos, then choose a weekly goal to build a plan around what you already have.
             </p>
             <div className="flex gap-3 pt-2">
               <Link href="/app/content">
-                <Button variant="default" size="sm" className="gap-1.5 font-mono text-xs">
+                <Button variant="default" size="sm" className="workspace-primary-action gap-1.5 font-mono text-xs">
                   <Upload className="w-3.5 h-3.5" />
                   <span>Upload Media Assets</span>
                 </Button>
               </Link>
               <Link href="/app/strategy">
-                <Button variant="secondary" size="sm" className="gap-1.5 font-mono text-xs">
+                <Button variant="secondary" size="sm" className="workspace-action-button gap-1.5 font-mono text-xs">
                   <Calendar className="w-3.5 h-3.5" />
                   <span>Choose a goal</span>
                 </Button>
@@ -220,7 +221,7 @@ export default function AppHomePage() {
               </p>
             </div>
             <div className="border-t border-zinc-900 pt-3 flex items-center justify-between">
-              <span className="text-[10px] text-zinc-500">Commercial Target</span>
+              <span className="text-[10px] text-zinc-500">Weekly goal</span>
               <Link href="/app/strategy" className="text-white hover:underline text-[11px]">
                 Adjust Goal &rarr;
               </Link>
@@ -285,7 +286,7 @@ export default function AppHomePage() {
             <div className="border-t border-zinc-900 pt-3 flex items-center justify-between">
               <span className="text-[10px] text-zinc-500">Readiness: {gapAnalysis ? `${gapAnalysis.readinessScore}%` : "—"}</span>
               <Link href="/app/strategy" className="text-white hover:underline text-[11px]">
-                View Gap Audit &rarr;
+                View content coverage
               </Link>
             </div>
           </div>

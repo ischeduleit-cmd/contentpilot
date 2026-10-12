@@ -29,6 +29,7 @@ import {
 } from "@/lib/db/schema";
 import { CONTENT_PILLARS } from "@/lib/constants";
 import { getStoredRestaurantProfile } from "@/lib/onboarding-store";
+import { authenticatedFetch } from "@/lib/authenticated-fetch";
 import { PRD_CONTENT_TYPES } from "@/lib/ai-analyzer";
 
 type FilterType = "all" | "photos" | "videos" | "needs_review";
@@ -94,7 +95,7 @@ export default function AppContentPage() {
     try {
       setIsLoading(true);
       setLoadError(null);
-      const res = await fetch(`/api/content/assets?restaurantId=${activeRestId}`);
+      const res = await authenticatedFetch(`/api/content/assets?restaurantId=${activeRestId}`);
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || "The content library could not be loaded.");
@@ -183,7 +184,7 @@ export default function AppContentPage() {
   const handleBatchAnalyze = async () => {
     try {
       setIsAnalyzingBatch(true);
-      const res = await fetch("/api/content/analyze", {
+      const res = await authenticatedFetch("/api/content/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -206,7 +207,7 @@ export default function AppContentPage() {
   const handleSingleAnalyze = async (assetId: string) => {
     try {
       setAnalyzingAssetId(assetId);
-      const res = await fetch("/api/content/analyze", {
+      const res = await authenticatedFetch("/api/content/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -234,7 +235,7 @@ export default function AppContentPage() {
     if (!previewAsset) return;
     try {
       setIsSavingEdit(true);
-      const res = await fetch(`/api/content/assets/${previewAsset.id}`, {
+      const res = await authenticatedFetch(`/api/content/assets/${previewAsset.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -287,7 +288,7 @@ export default function AppContentPage() {
     formData.append("restaurantId", restaurantId);
 
     try {
-      const res = await fetch("/api/content/upload", {
+      const res = await authenticatedFetch("/api/content/upload", {
         method: "POST",
         body: formData,
       });
@@ -331,7 +332,7 @@ export default function AppContentPage() {
     if (!assetToDelete) return;
     try {
       setIsDeleting(true);
-      const res = await fetch(
+      const res = await authenticatedFetch(
         `/api/content/assets?id=${assetToDelete.id}&restaurantId=${restaurantId}`,
         { method: "DELETE" }
       );
@@ -715,7 +716,7 @@ export default function AppContentPage() {
                         </p>
                       ) : (
                         <p className="text-[11px] font-sans text-zinc-500 italic">
-                          Pending AI marketing analysis...
+                          Content review pending
                         </p>
                       )}
 

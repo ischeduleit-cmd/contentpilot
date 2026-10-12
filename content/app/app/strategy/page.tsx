@@ -37,6 +37,7 @@ import {
 } from "@/lib/onboarding-store";
 import { GapAnalysisResult } from "@/lib/gap-analyzer";
 import { BusinessGoalType, ContentPlanItem, ContentAsset } from "@/lib/db/schema";
+import { authenticatedFetch } from "@/lib/authenticated-fetch";
 
 export default function AppStrategyPage() {
   const [selectedDay, setSelectedDay] = React.useState<string>("Monday");
@@ -104,7 +105,7 @@ export default function AppStrategyPage() {
     async function fetchGapAnalysis() {
       try {
         setIsLoadingGaps(true);
-        const res = await fetch(
+        const res = await authenticatedFetch(
           `/api/strategy/gap-analysis?restaurantId=${restaurantId}&goal=${selectedGoal}`
         );
         const data = await res.json();
@@ -127,8 +128,8 @@ export default function AppStrategyPage() {
       try {
         setIsLoadingPlan(true);
         const [planRes, assetsRes] = await Promise.all([
-          fetch(`/api/strategy/generate?restaurantId=${restaurantId}&goal=${selectedGoal}`),
-          fetch(`/api/content/assets?restaurantId=${restaurantId}`),
+          authenticatedFetch(`/api/strategy/generate?restaurantId=${restaurantId}&goal=${selectedGoal}`),
+          authenticatedFetch(`/api/content/assets?restaurantId=${restaurantId}`),
         ]);
 
         const planData = await planRes.json();
@@ -183,7 +184,7 @@ export default function AppStrategyPage() {
   const handleGenerateStrategy = async () => {
     try {
       setIsGenerating(true);
-      const res = await fetch("/api/strategy/generate", {
+      const res = await authenticatedFetch("/api/strategy/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -218,7 +219,7 @@ export default function AppStrategyPage() {
     if (!activePlanDay) return;
     try {
       setIsRegeneratingDay(true);
-      const res = await fetch("/api/strategy/regenerate-day", {
+      const res = await authenticatedFetch("/api/strategy/regenerate-day", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -256,11 +257,12 @@ export default function AppStrategyPage() {
     );
 
     try {
-      await fetch("/api/strategy/item", {
+      await authenticatedFetch("/api/strategy/item", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           itemId: item.id,
+          restaurantId,
           updates: { status: nextStatus },
         }),
       });
@@ -290,11 +292,12 @@ export default function AppStrategyPage() {
     setIsEditModalOpen(false);
 
     try {
-      await fetch("/api/strategy/item", {
+      await authenticatedFetch("/api/strategy/item", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           itemId: activePlanDay.id,
+          restaurantId,
           updates,
         }),
       });
@@ -329,11 +332,12 @@ export default function AppStrategyPage() {
     setIsReplaceAssetModalOpen(false);
 
     try {
-      await fetch("/api/strategy/item", {
+      await authenticatedFetch("/api/strategy/item", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           itemId: activePlanDay.id,
+          restaurantId,
           updates: {
             assetId: asset ? asset.id : null,
             contentToCreate: updates.contentToCreate,
@@ -392,25 +396,25 @@ export default function AppStrategyPage() {
     switch (status) {
       case "optimal":
         return (
-          <span className="text-[9px] px-1.5 py-0.2 bg-emerald-950/70 border border-emerald-800 text-emerald-300 font-mono uppercase">
+          <span className="pillar-status pillar-status-optimal text-[9px] px-1.5 py-0.2 bg-emerald-950/70 border border-emerald-800 text-emerald-300 font-mono uppercase">
             Optimal
           </span>
         );
       case "missing":
         return (
-          <span className="text-[9px] px-1.5 py-0.2 bg-red-950/80 border border-red-800 text-red-300 font-mono uppercase">
+          <span className="pillar-status pillar-status-missing text-[9px] px-1.5 py-0.2 bg-red-950/80 border border-red-800 text-red-300 font-mono uppercase">
             Missing
           </span>
         );
       case "underrepresented":
         return (
-          <span className="text-[9px] px-1.5 py-0.2 bg-amber-950/80 border border-amber-700 text-amber-300 font-mono uppercase">
+          <span className="pillar-status pillar-status-deficit text-[9px] px-1.5 py-0.2 bg-amber-950/80 border border-amber-700 text-amber-300 font-mono uppercase">
             Deficit
           </span>
         );
       default:
         return (
-          <span className="text-[9px] px-1.5 py-0.2 bg-zinc-900 border border-zinc-700 text-zinc-300 font-mono uppercase">
+          <span className="pillar-status pillar-status-balanced text-[9px] px-1.5 py-0.2 bg-zinc-900 border border-zinc-700 text-zinc-300 font-mono uppercase">
             Balanced
           </span>
         );
@@ -418,22 +422,20 @@ export default function AppStrategyPage() {
   };
 
   return (
-    <div className="flex-1 bg-black text-white p-4 sm:p-6 md:p-8 space-y-8 font-sans selection:bg-white selection:text-black">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="strategy-workspace flex-1 bg-black text-white p-4 sm:p-6 md:p-8 space-y-10 font-sans selection:bg-white selection:text-black">
+      <div className="max-w-7xl mx-auto space-y-12">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-zinc-800 pb-6">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 font-mono text-xs text-zinc-400">
               <Calendar className="w-3.5 h-3.5 text-zinc-400" />
-              <span>COMMERCIAL STRATEGY &amp; GAP DIAGNOSTICS</span>
-              <span className="text-zinc-600">/</span>
-              <span className="text-white font-bold">{restaurantName}</span>
+              <span>WEEKLY PLAN</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white font-sans">
-              Weekly Content Strategy
+              Your weekly strategy
             </h1>
             <p className="text-xs sm:text-sm text-zinc-400 font-mono">
-              Evaluates what content you already have, reveals commercial gaps, and maps footage to weekly dining revenue.
+              Plan the week around your goal and the content you already have.
             </p>
           </div>
 
@@ -519,7 +521,7 @@ export default function AppStrategyPage() {
                 <div className="flex items-center gap-2">
                   <Layers className="w-4 h-4 text-zinc-400" />
                   <span className="font-bold text-white text-[11px] uppercase">
-                    Content Readiness &amp; Gap Audit
+                    Your content coverage
                   </span>
                 </div>
                 <Badge
@@ -543,7 +545,7 @@ export default function AppStrategyPage() {
               {/* Readiness Progress Bar */}
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center text-[11px]">
-                  <span className="text-zinc-400">Strategic Readiness Score</span>
+                  <span className="text-zinc-400">Content coverage</span>
                   <span className="font-bold text-white font-mono">
                     {gapAnalysis ? `${gapAnalysis.readinessScore}%` : "..."}
                   </span>
@@ -594,8 +596,8 @@ export default function AppStrategyPage() {
         {/* ---------------------------------------------------- */}
         {/* PILLAR DISTRIBUTION BREAKDOWN (All 6 Pillars) */}
         {/* ---------------------------------------------------- */}
-        <div className="border border-zinc-800 bg-zinc-950 p-6 space-y-5 font-mono text-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-900 pb-3">
+        <div className="pillar-panel border border-zinc-800 bg-zinc-950 p-6 space-y-5 font-mono text-xs">
+            <div className="pillar-heading flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-900 pb-3">
             <div>
               <h3 className="text-sm font-bold text-white font-sans">
                 Content Pillar Distribution &amp; Goal Benchmark
@@ -607,10 +609,10 @@ export default function AppStrategyPage() {
             </div>
             <div className="flex items-center gap-3 text-[10px] text-zinc-500">
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 bg-white inline-block" /> Current Library
+                <span className="pillar-legend-current w-2.5 h-2.5 bg-white inline-block" /> Current Library
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 bg-zinc-700 inline-block" /> Target Benchmark
+                <span className="pillar-legend-target w-2.5 h-2.5 bg-zinc-700 inline-block" /> Target Benchmark
               </span>
             </div>
           </div>
@@ -619,15 +621,15 @@ export default function AppStrategyPage() {
             {gapAnalysis?.pillarDistribution.map((item) => (
               <div
                 key={item.id}
-                className="p-3.5 border border-zinc-900 bg-black/60 space-y-2.5 flex flex-col justify-between"
+                className="pillar-card p-3.5 border border-zinc-900 bg-black/60 space-y-2.5 flex flex-col justify-between"
               >
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-white font-sans">{item.label}</span>
+                    <span className="pillar-name text-xs font-bold text-white font-sans">{item.label}</span>
                     {getPillarStatusBadge(item.status)}
                   </div>
 
-                  <div className="flex justify-between text-[11px] text-zinc-400">
+                  <div className="pillar-stats flex justify-between text-[11px] text-zinc-400">
                     <span>
                       Library: <strong className="text-white">{item.percentage}%</strong> ({item.count} items)
                     </span>
@@ -635,14 +637,14 @@ export default function AppStrategyPage() {
                   </div>
 
                   {/* Dual comparison bar */}
-                  <div className="space-y-1">
-                    <div className="w-full bg-zinc-900 h-1.5 overflow-hidden">
+                  <div className="pillar-bars space-y-1">
+                    <div className="pillar-current-track w-full bg-zinc-900 h-1.5 overflow-hidden" role="img" aria-label={`Current library: ${item.percentage}%`}>
                       <div
                         className="bg-white h-full transition-all duration-500"
                         style={{ width: `${Math.min(100, item.percentage)}%` }}
                       />
                     </div>
-                    <div className="w-full bg-zinc-900 h-1 overflow-hidden">
+                    <div className="pillar-target-track w-full bg-zinc-900 h-1 overflow-hidden" role="img" aria-label={`Target benchmark: ${item.benchmarkPercentage}%`}>
                       <div
                         className="bg-zinc-600 h-full transition-all duration-500"
                         style={{ width: `${item.benchmarkPercentage}%` }}
@@ -651,11 +653,14 @@ export default function AppStrategyPage() {
                   </div>
                 </div>
 
-                <div className="text-[10px] text-zinc-500 pt-1 border-t border-zinc-900">
+                <div className="pillar-deficit text-[10px] text-zinc-500 pt-1 border-t border-zinc-900">
                   {item.deficitCount > 0 ? (
-                    <span className="text-amber-400 font-mono">
-                      Deficit: Need +{item.deficitCount} {item.deficitCount === 1 ? "asset" : "assets"}
-                    </span>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-amber-400 font-mono">
+                        Need +{item.deficitCount} {item.deficitCount === 1 ? "asset" : "assets"}
+                      </span>
+                      <Link href="/app/content" className="pillar-add-link">Add content <ArrowRight className="inline h-3 w-3" aria-hidden="true" /></Link>
+                    </div>
                   ) : (
                     <span className="text-zinc-500 font-mono">Benchmark satisfied</span>
                   )}
@@ -677,11 +682,11 @@ export default function AppStrategyPage() {
               <div className="flex items-center gap-2">
                 <Zap className="w-4 h-4 text-white" />
                 <h2 className="text-base font-bold text-white font-sans">
-                  Actionable 7-Day Commercial Schedule
+                  The weekly plan
                 </h2>
               </div>
               <p className="text-xs text-zinc-400 font-mono pt-0.5">
-                Granular control: Keep, Edit, Regenerate, Swap Footage, or Export directly to messaging and run-sheets.
+                Review each idea, make changes, and share the plan with your team.
               </p>
             </div>
 
@@ -1061,7 +1066,6 @@ export default function AppStrategyPage() {
             </div>
           </div>
         </div>
-      </div>
 
         ) : (
           <section className="p-6 sm:p-9 border border-zinc-800 bg-zinc-950 space-y-4" aria-labelledby="empty-strategy-title">
@@ -1076,6 +1080,7 @@ export default function AppStrategyPage() {
             </div>
           </section>
         )}
+        </div>
 
       {/* ---------------------------------------------------- */}
       {/* PHASE 7 MODAL 1: EDIT STRATEGY BRIEF MODAL */}
