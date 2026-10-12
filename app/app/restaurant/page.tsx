@@ -25,6 +25,7 @@ import {
   OnboardingRestaurantForm,
   getStoredUser,
 } from "@/lib/onboarding-store";
+import { authenticatedFetch } from "@/lib/authenticated-fetch";
 
 export default function AppRestaurantPage() {
   const [formData, setFormData] = React.useState<OnboardingRestaurantForm>(() => {
@@ -56,7 +57,7 @@ export default function AppRestaurantPage() {
 
     try {
       const user = getStoredUser();
-      await fetch("/api/onboarding", {
+      await authenticatedFetch("/api/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -125,7 +126,7 @@ export default function AppRestaurantPage() {
                 className="bg-black border-zinc-800 text-white font-mono text-xs"
               />
               <p className="text-[11px] text-zinc-500 font-sans">
-                The public commercial brand name used in copywriting hooks.
+                The restaurant name used in your weekly plan.
               </p>
             </div>
 
@@ -233,7 +234,7 @@ export default function AppRestaurantPage() {
               className="bg-black border-zinc-800 text-white font-mono text-xs resize-none"
             />
             <p className="text-[11px] text-zinc-500 font-sans">
-              Provides culinary nuance and unique craft details for your AI strategy items.
+              Add the details that make your food and service distinct.
             </p>
           </div>
 

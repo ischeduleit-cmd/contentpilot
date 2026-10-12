@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContentAssetById, deleteContentAssetRecord } from "@/lib/content-repository";
-import { deleteAssetFromSupabase } from "@/lib/supabase";
-import { BENCHMARK_RESTAURANT } from "@/lib/constants";
+import { deleteAssetFromSupabase, verifyRestaurantOwner } from "@/lib/supabase";
 
 export async function DELETE(
   req: NextRequest,
@@ -10,11 +9,14 @@ export async function DELETE(
   try {
     const { id } = params;
     const { searchParams } = new URL(req.url);
-    const restaurantId = searchParams.get("restaurantId") || BENCHMARK_RESTAURANT.id;
+    const restaurantId = searchParams.get("restaurantId");
 
     if (!id) {
       return NextResponse.json({ error: "Asset ID is required" }, { status: 400 });
     }
+    if (!restaurantId) return NextResponse.json({ error: "Restaurant ID is required." }, { status: 400 });
+    const access = await verifyRestaurantOwner(req, restaurantId);
+    if (!access.restaurant) return NextResponse.json({ error: "Workspace access denied." }, { status: access.status });
 
     // Verify ownership at backend level
     const existingAsset = await getContentAssetById(id, restaurantId);
@@ -65,11 +67,14 @@ export async function PATCH(
   try {
     const { id } = params;
     const body = await req.json();
-    const restaurantId = body.restaurantId || BENCHMARK_RESTAURANT.id;
+    const restaurantId = body.restaurantId;
 
     if (!id) {
       return NextResponse.json({ error: "Asset ID is required" }, { status: 400 });
     }
+    if (!restaurantId) return NextResponse.json({ error: "Restaurant ID is required." }, { status: 400 });
+    const access = await verifyRestaurantOwner(req, restaurantId);
+    if (!access.restaurant) return NextResponse.json({ error: "Workspace access denied." }, { status: access.status });
 
     const { updateContentAssetRecord } = await import("@/lib/content-repository");
 

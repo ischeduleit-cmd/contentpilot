@@ -73,7 +73,8 @@ PUBLIC
         ▼
 AUTHENTICATED
 │
-├── Restaurant Onboarding (/onboarding & /onboarding/goal)
+├── Single-page Restaurant Signup + Email OTP (/signup)
+└── Legacy OAuth/Profile Onboarding (/onboarding & /onboarding/goal)
 │
 └── Main App Shell (/app/layout.tsx)
     ├── Home (/app)
@@ -122,61 +123,15 @@ AI Content Strategy Matrix
 
 ### 4.1 Landing Page Pricing Architecture
 
-ContentPilot follows a clear 3-tier SaaS pricing architecture inspired by modern product-led growth principles (Buffer-style transparency).
+Pricing is monthly in NGN: Free ₦0, Grow ₦30,000, and Pro ₦50,000. The server uses these fixed plan amounts. Flutterwave bank-transfer checkout is implemented behind test-only configuration; paid access requires a verified webhook. Live collection remains disabled until provider account setup, migration, and explicit launch authorization are complete.
 
-> **Architectural Guardrail — Presentation Only:**
-> The pricing table is strictly a presentation and commercial positioning layer.
-> **No payment processors (Stripe, Paystack, PayPal, Paddle) are integrated.**
-> Clicking any tier CTA immediately routes the user to the free restaurant account creation flow (`/signup`).
+| Plan | Monthly price | Asset limit | Current product capabilities |
+| :--- | :---: | :---: | :--- |
+| Free | ₦0/month | 10 | Basic content analysis and gap insights, one restaurant workspace, seven-day strategy, Instagram and TikTok recommendations, hooks, captions, and calls to action. |
+| Grow — Most Popular | ₦30,000/month | 100 | Free capabilities plus full content gap analysis, platform adaptations, asset recommendations and replacement, strategy editing and regeneration, copy, and export. |
+| Pro | ₦50,000/month | 500 | Grow capabilities plus the larger library limit and the current advanced content-mix recommendations. No unimplemented fatigue detection, priority processing, team access, or support is promised. |
 
-#### Pricing Tiers
-1. **Free Tier — $0 / month**
-   * *Target:* Independent restaurant owners testing AI content planning with existing camera roll footage.
-   * *Features:*
-     * Up to 30 media asset uploads
-     * 1 active weekly business goal
-     * 7-day AI strategy generation (1 run / week)
-     * Basic Instagram & TikTok platform hooks
-     * Standard content gap diagnostic
-     * Manual copy & WhatsApp export
-   * *CTA:* `Start Free` (`/signup`)
-
-2. **Grow Tier — $5 / month (Marked "Most Popular")**
-   * *Target:* Busy restaurants looking for consistent, high-converting weekly social media execution.
-   * *Features:*
-     * Up to 150 media asset uploads
-     * Unlimited weekly business goal switching
-     * Comprehensive multi-pillar content gap analysis
-     * Platform-native Instagram line breaks & TikTok script drawers
-     * Regenerate individual daily posts & replace media assets
-     * Printable kitchen run-sheets & formatted run-sheet copy
-     * Priority AI vision processing
-   * *CTA:* `Get Started with Grow` (`/signup`)
-
-3. **Pro Tier — $10 / month**
-   * *Target:* High-volume dining spots, multi-concept kitchens, cloud kitchens, and restaurant marketers.
-   * *Features:*
-     * Unlimited media asset uploads
-     * Multi-concept & multi-location workspaces
-     * Advanced commercial angle customization & rationale tuning
-     * High-leverage smartphone filming shot-lists (`ContentToCreateBrief`)
-     * Weekly performance review & media fatigue alerts
-     * Team member access & export sharing
-     * Priority support
-   * *CTA:* `Upgrade to Pro` (`/signup`)
-
-#### Feature Comparison Matrix
-| Capability | Free ($0) | Grow ($5) - Most Popular | Pro ($10) |
-| :--- | :---: | :---: | :---: |
-| Media Asset Storage | 30 files | 150 files | Unlimited |
-| Weekly Strategy Runs | 1 plan / week | Unlimited | Unlimited |
-| Goal-Driven Planning | 1 active goal | All 7 business goals | Custom goals |
-| Content Gap Analysis | Basic audit | Full 6-pillar breakdown | Deep commercial diagnostic |
-| Platform Adaptations | Basic hooks | Full IG & TikTok drawers | Custom tone adaptation |
-| Asset Replacement & Regen | Manual | Yes (inline modal) | Yes (instant) |
-| Filming Shot-Lists | Not included | Included | Custom direction |
-| Kitchen Run-Sheet Print/PDF | No | Yes | Yes + custom branding |
-| Payment Integration | None (Free) | None (Presentation) | None (Presentation) |
+The signup and payment journey must not grant paid access until a verified provider payment updates the server-side entitlement record.
 
 ---
 
@@ -209,7 +164,7 @@ ContentPilot answers the 16 most common objections and questions held by busy re
 12. **Can I export my weekly content plan?**
     * *Answer:* Yes. You can copy the entire week's plan formatted for WhatsApp, Notion, or Slack in one click, download a plain text backup, or print a formatted kitchen dispatch run-sheet table for your staff.
 13. **Is there really a free plan?**
-    * *Answer:* Yes. The Free plan is $0/month and lets you upload up to 30 media assets and generate complete 7-day strategic content schedules without entering a credit card.
+    * *Answer:* Yes. The Free plan is ₦0/month and lets you upload up to 10 media assets and generate one seven-day strategy each week without entering a card.
 14. **Do I need to connect my social media passwords or accounts?**
     * *Answer:* No. You never connect social media accounts or enter social passwords into ContentPilot. Your social accounts remain 100% secure.
 15. **What happens if I change my restaurant's weekly goal mid-week?**
@@ -437,24 +392,28 @@ ContentPilot enforces a genuine multi-tenant workspace architecture where every 
 * Restaurant owners and social managers must never be prompted for operator access or internal developer passwords.
 * The "Fast-Track via Benchmark Workspace" bypass has been permanently excised from `/login` and `/signup`.
 
-### 11.2 Real Restaurant Signup & Onboarding Flow
-The authenticated entry experience flows seamlessly through two dedicated steps:
-1. **User Authentication (`/signup` & `/login`)**: Standard email and password authentication. Saves persistent user session (`UserSession`) to local store and Supabase.
-2. **Step 1: Restaurant Profile Setup (`/onboarding`)**: Collects 6 core operational parameters:
+### 11.2 Single-Page Restaurant Signup & Verification
+`/signup` is a single-page registration experience. The registration state collects restaurant name, location, restaurant type, target customers, desired customer action, business description, weekly goal, email, password, and password confirmation. Both browser and server validate the submitted values. A server-only isolated Supabase client initiates signup so a pre-existing browser session cannot authenticate the new registration; the password is sent only to Supabase Auth and is never logged, persisted in application tables, returned to the browser, or sent to Google Sheets. Supabase Auth user metadata retains the restaurant details until a verified session completes profile creation.
+
+1. **Email/password signup (`/signup`)**: `/api/auth/signup` validates the complete form and calls Supabase Auth `signUp`. A returned session or confirmed user is treated as a project-configuration error; it is never accepted as OTP verification. The same page accepts a six-digit code using `verifyOtp({ type: "signup" })`, checks that the resulting confirmed user matches the submitted email, and then makes an authenticated request to save the restaurant and initial goal before redirecting to `/app`.
+2. **Code expiry and resend**: Supabase validates OTPs and rejects incorrect, expired, and reused codes. The UI explains the 15-minute validity period and applies a 60-second resend cooldown; Supabase Auth rate limits remain authoritative. Returning to edit leaves no workspace behind. Duplicate signup responses are generic to avoid account enumeration.
+3. **Existing users (`/login`)**: Email/password sign-in and the existing Google OAuth option remain available. The signup page detects and labels a pre-existing verified browser session so it is not mistaken for access granted to a pending registration. If the browser is closed after signup, verified sign-in can resume profile completion from the Auth user metadata.
+
+The legacy `/onboarding` and `/onboarding/goal` forms remain available for OAuth registration started before this flow and profile editing. New email registrants do not repeat their restaurant details.
+
+Restaurant profile fields:
    * **Restaurant Name:** Full commercial trading name.
    * **Location:** City, neighborhood, or state (e.g., "Victoria Island, Lagos" or "Downtown Austin").
    * **Restaurant Type:** Selected from curated dining types (`restaurant`, `fast_food`, `cafe`, `bakery`, `food_delivery`, `bar_lounge`, `cloud_kitchen`, `other`).
    * **Target Audience:** Freeform demographic and customer description (e.g., "Corporate workers, banking professionals, university students").
    * **Primary Customer Action:** Desired diner behavior (`order_food`, `visit`, `whatsapp`, `book_table`, `discover`, `other`).
    * **Business Description:** Narrative operational context describing culinary concept, signature dishes, vibe, and kitchen specialty.
-3. **Step 2: Active Weekly Goal Selection (`/onboarding/goal`)**:
-   * Chooses from commercial objectives (`get_more_orders`, `promote_menu`, `increase_awareness`, `build_trust`, `increase_engagement`, `promote_event`, `bring_customers_in`, `other`).
-   * Submits complete payload to `POST /api/onboarding`, creates isolated restaurant ID, initializes weekly goal, triggers asynchronous Google Sheets synchronization, and transitions directly to the authenticated dashboard (`/app`).
-
 ### 11.3 Workspace Isolation & Demo Decoupling
 * **Dedicated Workspace State:** Every user owns their restaurant record, media assets, gap audit results, and 7-day strategy plans.
 * **Storage Scoping:** Media uploads (`/api/content/upload`) and library queries (`/api/content/assets`) strictly require and enforce `restaurantId`.
 * **Clean Empty States:** New workspaces start with a clean empty media library and an onboarding banner welcoming the owner to upload their first batch of photos and videos.
+* **Verified-user protection:** API identity is validated with Supabase `getUser`; email must be confirmed before workspace APIs accept the token. Profile writes use the authenticated user ID and existing ownership RLS policies.
+* **Idempotency:** Restaurant ID is stable per authenticated user and initial weekly-goal ID is stable per restaurant/week, so completion retries do not create duplicate profiles or goals.
 * **Decoupling of Ovie's Kitchen:**
   * Ovie's Kitchen (`rest-ovie`) is strictly isolated as static benchmark data for the public Landing Page Live Strategy Run demo.
   * Ovie's Kitchen is **never** loaded as default state in authenticated routes (`/app`, `/app/content`, `/app/strategy`, `/app/restaurant`).
@@ -462,34 +421,25 @@ The authenticated entry experience flows seamlessly through two dedicated steps:
 
 ---
 
-# 12. Google Sheets Onboarding Synchronization
+# 12. Google Sheets Registration Synchronization
 
-To maintain unified executive tracking of all onboarded restaurants, ContentPilot features an automatic, non-blocking Google Sheets synchronization pipeline.
+After verification, the profile and goal persist to Supabase first. Server-side Google Sheets synchronization is secondary and never blocks workspace access. Pending/failed sync state is stored on the restaurant row and shown in the workspace; the user can retry, and workspace lookup also attempts reconciliation. Retries look up the stable Supabase user ID and update the existing row or append a new one. Sheets does not provide atomic compare-and-append, so simultaneous first-time sync requests are not guaranteed exactly-once.
 
-* **Target Google Account:** `ischeduleit@gmail.com`
-* **Google Cloud Project:** `wurathepmm` via Google Workspace CLI (`gws`)
-* **Synchronization Trigger:** Fires automatically whenever a user completes the onboarding flow (`POST /api/onboarding`).
-* **Synchronized Columns:**
-  1. `Timestamp` (ISO 8601 UTC)
-  2. `User ID`
-  3. `User Email`
-  4. `Restaurant Name`
-  5. `Location`
-  6. `Restaurant Type`
-  7. `Target Audience`
-  8. `Primary Customer Action`
-  9. `Business Description`
-  10. `Initial Weekly Goal`
-  11. `Environment` (`production` / `development`)
+* **Managing account:** Local service-account credentials successfully read the configured spreadsheet metadata and the 11-cell header row in `Sheet1`. This proves local read access only; it does not prove a registration row write or production Vercel access. Vercel CLI is logged out in the current workspace, so deployed environment variables and the deployed source revision could not be inspected.
+* **Required deployment configuration:** Server-only `GOOGLE_SHEETS_SPREADSHEET_ID` and service-account JSON or email/private key. Share the destination sheet with that service account as an editor. `GOOGLE_SHEETS_SHEET_NAME` selects a tab; if unset, the first tab is used. Local credentials do not supply Vercel production credentials.
+* **Columns:** Created At, User ID, Email, Restaurant Name, Location, Restaurant Type, Target Customers, Desired Customer Action, Business Description, Weekly Goal, Sheets Sync Status.
+* **Idempotency and retry:** Existing rows are found by user ID and updated; missing rows are appended. This avoids duplicate rows on sequential retries, but concurrent append races are not atomic. The workspace lookup and explicit retry action are the reconciliation mechanism; there is no background retry queue. Failures are logged using sanitized error codes, persisted when the database update succeeds, and shown to the user. Passwords, OTPs, access tokens, and refresh tokens are excluded.
+* **Current deployment status:** Local spreadsheet ID and service-account configuration are present, and `Sheet1` is readable. A synthetic integration-test row was written, read back, and removed. No real registration row or Vercel production write was verified; production requires its own service-account env vars and sheet editor permission.
+* **Prior committed flow diagnosis:** The repository's current `HEAD` signup page created a random browser-side user, saved it in local storage, and moved directly to onboarding without calling Supabase Auth. Its onboarding API created a local workspace and launched Sheets sync without awaiting it. This code explains both reported symptoms if it matches the deployed revision. The live Vercel revision could not be confirmed because the Vercel CLI is logged out; the working-tree flow includes the OTP and sync fixes described above.
 
-### Non-Blocking Architectural Resiliency
-* **Zero Failure Propagation:** If Google Sheets synchronization fails due to expired OAuth tokens, network timeouts, or quota limits, the user's onboarding **never fails or blocks**.
-* **Audit Trail:** All onboarding submissions and sync statuses are persistently logged to `.google-sheets-sync-log.json` on the server.
-* **Interactive CLI Authentication:** If `gws auth status` returns an expired token (`token_error: Bad Request`), the system safely logs the required interactive command for the administrator:
-  ```bash
-  gws auth login
-  ```
-  *(Select or log into `ischeduleit@gmail.com` to grant Google Sheets append permissions).*
+### 12.1 Supabase Dashboard and Email Provider Configuration
+In Supabase, enable email confirmations under **Authentication → Providers → Email**, set **Authentication → Email → OTP length** to `6`, and **OTP expiry** to `900` seconds. The confirmation email template must display `{{ .Token }}` so it delivers the numeric code. Configure production SMTP and sending-domain deliverability. These project-level settings cannot be verified or changed from this repository. The application uses Supabase signup, verifyOtp, and resend APIs and does not generate or store OTPs.
+
+### 12.2 Supabase Dashboard and Email Provider Configuration
+Email confirmation must be enabled under **Authentication → Providers → Email** (`mailer_autoconfirm` false). The confirmation email template must display `{{ .Token }}` to deliver a numeric code. Set OTP length to `6` and OTP expiry to `900` seconds. Hosted settings inspection available to this app confirmed email auto-confirm is disabled, but OTP length/expiry and template contents were not exposed for verification; check those three settings in the Dashboard. SMTP has been configured by the project owner; delivery still requires a controlled test signup.
+
+### 12.3 Registration Verification Plan (Partially Executed)
+Local checks performed: hosted Auth reports email auto-confirm disabled; local Google service-account access read spreadsheet metadata and header; no production Vercel access or live email delivery was available. Remaining scenarios require a dedicated test account: correct, incorrect, expired, and reused OTP; resend cooldown/rate limit; registration completion and session persistence; existing login; user isolation; Google row upsert and retry under injected failure; and mobile/desktop UI. Do not mark scenarios passed until they are actually run.
 
 ---
 
@@ -619,7 +569,7 @@ CREATE TABLE IF NOT EXISTS content_plan_items (
 * ❌ OAuth login with Instagram / TikTok
 * ❌ WhatsApp Cloud API integration or conversational auto-responders
 * ❌ Telegram bot automations
-* ❌ Payment gateways or billing systems (Pricing is strictly presentation only)
+* ❌ Live payment collection until test-mode verification, merchant configuration, currency policy, and explicit launch authorization are complete
 * ❌ Multi-tenant agency hierarchies or client sign-off portals
 * ❌ Generic Buffer-style scheduling queues
 * ❌ Native iOS or Android mobile applications
@@ -649,25 +599,23 @@ Across the entire application (UI layouts, modals, buttons, badges, notification
        ↓
 2. Click "Start Free" or "Build My Content Plan" → Navigate to /signup
        ↓
-3. Create account (Name, Email, Password)
+3. Create account with restaurant details, weekly goal, email, and password (`/signup`)
        ↓
-4. Complete Step 1: Restaurant Profile (/onboarding) with business description
+4. Enter the six-digit email code within 15 minutes
        ↓
-5. Complete Step 2: Weekly Goal (/onboarding/goal)
+5. Persist the verified profile and weekly goal; attempt server-side Google Sheets sync
        ↓
-6. Sync payload to Google Sheets (non-blocking fallback to ischeduleit@gmail.com)
+6. Lands on Authenticated Dashboard (/app) showing real restaurant name and empty state
        ↓
-7. Lands on Authenticated Dashboard (/app) showing real restaurant name and empty state
+7. Navigate to Content (/app/content) and batch upload camera roll photos/videos
        ↓
-8. Navigate to Content (/app/content) and batch upload camera roll photos/videos
+8. Multimodal AI categorizes culinary media into structured pillars and objectives
        ↓
-9. Multimodal AI categorizes culinary media into structured pillars and objectives
+9. Navigate to Strategy (/app/strategy) to generate personalized 7-Day Strategy
        ↓
-10. Navigate to Strategy (/app/strategy) to generate personalized 7-Day Strategy
+10. Inspect Instagram overlays & TikTok spoken-word scripts; test Keep, Edit, Regen, Replace
        ↓
-11. Inspect Instagram overlays & TikTok spoken-word scripts; test Keep, Edit, Regen, Replace
-       ↓
-12. Copy formatted WhatsApp run-sheet or print kitchen dispatch schedule
+11. Copy formatted WhatsApp run-sheet or print kitchen dispatch schedule
 ```
 
 ---
@@ -732,4 +680,3 @@ MAIN APP (PERSONAL WORKSPACE)
 * **Strategy is the core output.**
 * **Live Strategy Run sells the intelligence.**
 * **The Main App does the actual work.**
-

@@ -23,8 +23,9 @@ import {
   saveStoredGoalProfile,
   getStoredRestaurantProfile,
   saveStoredRestaurantProfile,
-  getStoredUser,
 } from "@/lib/onboarding-store";
+import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { authenticatedFetch } from "@/lib/authenticated-fetch";
 import { BusinessGoalType } from "@/lib/db/schema";
 
 export default function OnboardingGoalPage() {
@@ -34,6 +35,8 @@ export default function OnboardingGoalPage() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isCompleted, setIsCompleted] = React.useState(false);
   const [createdWorkspaceId, setCreatedWorkspaceId] = React.useState<string | null>(null);
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = React.useState("free");
 
   const [formData, setFormData] = React.useState<OnboardingGoalForm>(() => {
     return (
@@ -48,6 +51,8 @@ export default function OnboardingGoalPage() {
   React.useEffect(() => {
     const profile = getStoredRestaurantProfile();
     setRestaurantProfile(profile);
+    const requestedPlan = new URLSearchParams(window.location.search).get("plan");
+    if (requestedPlan === "grow" || requestedPlan === "pro") setSelectedPlan(requestedPlan);
   }, []);
 
   const handleGoalSelect = (goalId: BusinessGoalType) => {
@@ -65,17 +70,23 @@ export default function OnboardingGoalPage() {
 
     saveStoredGoalProfile(formData);
 
-    const currentUser = getStoredUser();
     const currentProfile = getStoredRestaurantProfile();
 
     try {
-      const res = await fetch("/api/onboarding", {
+      setSubmitError(null);
+      const supabase = getSupabaseBrowserClient();
+      const { data: { user } } = await supabase?.auth.getUser() || { data: { user: null } };
+      const { data: { session } } = await supabase?.auth.getSession() || { data: { session: null } };
+      if (!session?.access_token || !user?.email_confirmed_at) {
+        router.replace("/login?next=%2Fonboarding");
+        return;
+      }
+      const res = await authenticatedFetch("/api/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: currentUser?.email || "owner@restaurant.com",
-          restaurantName: currentProfile?.name || "My Restaurant",
-          location: currentProfile?.location || "City Area",
+          restaurantName: currentProfile?.name || "",
+          location: currentProfile?.location || "",
           restaurantType: currentProfile?.restaurantType || "restaurant",
           targetAudience: currentProfile?.targetAudience || "",
           primaryCustomerAction: currentProfile?.primaryCustomerAction || "order_food",
@@ -87,7 +98,7 @@ export default function OnboardingGoalPage() {
       });
 
       const data = await res.json();
-      if (data.success && data.restaurant) {
+      if (res.ok && data.success && data.restaurant) {
         setCreatedWorkspaceId(data.restaurant.id);
         // Save restaurant ID and details to local state
         saveStoredRestaurantProfile({
@@ -101,12 +112,14 @@ export default function OnboardingGoalPage() {
           primaryCustomerAction: data.restaurant.primaryCustomerAction,
           businessDescription: data.restaurant.businessDescription,
         });
+        setIsCompleted(true);
+      } else {
+        setSubmitError(data.error || "We could not save your restaurant profile. Please try again.");
       }
-    } catch (err) {
-      console.warn("[Onboarding API Call Notice]:", err);
+    } catch {
+      setSubmitError("We could not reach the workspace service. Your details have not been submitted.");
     } finally {
       setIsSubmitting(false);
-      setIsCompleted(true);
     }
   };
 
@@ -154,12 +167,13 @@ export default function OnboardingGoalPage() {
               </span>
               <span className="font-semibold text-white">Weekly Business Goal</span>
             </div>
-            <Badge variant="default" className="text-[9px]">ACTIVE</Badge>
+            <Badge variant="default" className="goal-active-badge text-[9px]">ACTIVE</Badge>
           </div>
         </div>
 
         {/* Main Grid: Form + Strategic Live Context */}
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {submitError && <p role="alert" className="lg:col-span-12 border border-red-300 bg-red-50 p-3 text-sm text-red-800">{submitError}</p>}
           {/* Left Form: 7 Columns */}
           <div className="lg:col-span-7 space-y-6 border border-zinc-800 bg-zinc-950 p-6">
             {/* Week Starting Date */}
@@ -192,7 +206,8 @@ export default function OnboardingGoalPage() {
                       key={goal.id}
                       type="button"
                       onClick={() => handleGoalSelect(goal.id)}
-                      className={`p-3 text-left border transition-all flex flex-col gap-1 ${
+                      aria-pressed={isSelected}
+                      className={`onboarding-choice p-3 text-left border transition-all flex flex-col gap-1 ${
                         isSelected
                           ? "bg-white text-black font-semibold border-white"
                           : "bg-black text-zinc-400 border-zinc-800 hover:border-zinc-600 hover:text-white"
@@ -231,11 +246,11 @@ export default function OnboardingGoalPage() {
             {/* Action Buttons */}
             <div className="pt-4 border-t border-zinc-900 flex items-center justify-between">
               <Link href="/onboarding">
-                <Button type="button" variant="outline" size="sm" className="font-mono text-xs">
+                <Button type="button" variant="outline" size="sm" className="onboarding-back font-mono text-xs">
                   Back
                 </Button>
               </Link>
-              <Button type="submit" variant="default" size="lg" disabled={isSubmitting} className="gap-2 font-mono text-xs">
+              <Button type="submit" variant="default" size="lg" disabled={isSubmitting} className="onboarding-primary-action gap-2 font-mono text-xs">
                 <span>{isSubmitting ? "Creating Workspace..." : "Lock Goal & Finalize Workspace"}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Button>
@@ -295,22 +310,22 @@ export default function OnboardingGoalPage() {
                   audit content gaps, and build your 7-day conversion schedule.
                 </p>
                 <div className="pt-2 flex flex-col gap-2">
-                  <Link href="/app">
-                    <Button variant="default" className="w-full font-mono text-xs gap-1.5">
-                      <span>Enter Your Workspace</span>
+                  <Link href={selectedPlan === "free" ? "/app" : `/billing?plan=${selectedPlan}`}>
+                    <Button variant="default" className="onboarding-primary-action w-full font-mono text-xs gap-1.5">
+                      <span>{selectedPlan === "free" ? "Enter Your Workspace" : `Continue to ${selectedPlan === "grow" ? "Grow" : "Pro"} payment`}</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </Button>
                   </Link>
-                  <Link href="/app/content">
-                    <Button variant="secondary" className="w-full font-mono text-xs gap-1.5">
+                  {selectedPlan === "free" && <Link href="/app/content">
+                    <Button variant="secondary" className="onboarding-secondary-action w-full font-mono text-xs gap-1.5">
                       <span>Upload Raw Content</span>
                     </Button>
-                  </Link>
-                  <Link href="/app/strategy">
-                    <Button variant="secondary" className="w-full font-mono text-xs">
+                  </Link>}
+                  {selectedPlan === "free" && <Link href="/app/strategy">
+                    <Button variant="secondary" className="onboarding-secondary-action w-full font-mono text-xs">
                       View 7-Day Strategy Schedule
                     </Button>
-                  </Link>
+                  </Link>}
                 </div>
               </div>
             )}

@@ -4,7 +4,7 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 
 export const metadata: Metadata = {
-  title: "ContentPilot — AI Content Strategist for Restaurant Owners",
+  title: "ContentPilot — Weekly Restaurant Content Planner",
   description:
     "Turn the restaurant photos and videos you already have into a goal-driven weekly content plan for Instagram and TikTok.",
   icons: {

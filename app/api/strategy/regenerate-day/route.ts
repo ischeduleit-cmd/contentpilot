@@ -4,6 +4,8 @@ import { getContentAssetById } from "@/lib/content-repository";
 import { updateContentPlanItem } from "@/lib/strategy-repository";
 import { regenerateDayStrategy } from "@/lib/strategy-engine";
 import { BusinessGoalType } from "@/lib/db/schema";
+import { verifyRestaurantOwner } from "@/lib/supabase";
+import { getLatestContentPlan } from "@/lib/strategy-repository";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +20,7 @@ export async function POST(req: NextRequest) {
     const {
       itemId,
       dayOfWeek,
-      restaurantId = BENCHMARK_RESTAURANT.id,
+      restaurantId,
       goal = BENCHMARK_RESTAURANT.activeGoal.goal,
       assetId,
       time = "11:30 AM",
@@ -31,6 +33,11 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+    if (!restaurantId) return NextResponse.json({ success: false, error: "Restaurant ID is required." }, { status: 400 });
+    const access = await verifyRestaurantOwner(req, restaurantId);
+    if (!access.restaurant) return NextResponse.json({ success: false, error: "Workspace access denied." }, { status: access.status });
+    const currentPlan = await getLatestContentPlan(restaurantId);
+    if (!currentPlan?.items.some((item) => item.id === itemId)) return NextResponse.json({ success: false, error: "Plan item not found." }, { status: 404 });
 
     let matchedAsset = null;
     if (assetId) {
@@ -38,16 +45,16 @@ export async function POST(req: NextRequest) {
     }
 
     const { getRestaurantById } = await import("@/lib/restaurant-repository");
-    const realRest = restaurantId !== BENCHMARK_RESTAURANT.id ? await getRestaurantById(restaurantId) : null;
+    const realRest = access.restaurant;
 
     const regenerated = regenerateDayStrategy({
       dayOfWeek,
       pillar: "product",
       objective: "conversion",
       goal: goal as BusinessGoalType,
-      restaurantName: body.restaurantName || realRest?.name || (restaurantId === BENCHMARK_RESTAURANT.id ? BENCHMARK_RESTAURANT.name : "Your Restaurant"),
-      location: body.location || realRest?.location || (restaurantId === BENCHMARK_RESTAURANT.id ? BENCHMARK_RESTAURANT.location : "Your City"),
-      primaryAction: body.primaryCustomerAction || realRest?.primaryCustomerAction || (restaurantId === BENCHMARK_RESTAURANT.id ? BENCHMARK_RESTAURANT.primaryAction : "order_food"),
+      restaurantName: realRest.name,
+      location: realRest.location,
+      primaryAction: realRest.primary_customer_action,
       matchedAsset,
       time,
       variationIndex,
