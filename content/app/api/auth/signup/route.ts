@@ -59,8 +59,31 @@ export async function POST(request: NextRequest) {
   });
 
   if (error) {
-    // Keep duplicate-address responses indistinguishable from other signup failures.
-    console.warn("[Auth Signup] Supabase rejected a signup request.", { status: error.status || "unknown" });
+    console.error("[Auth Signup] Supabase rejected a signup request.", {
+      message: error.message,
+      status: error.status,
+      name: error.name,
+    });
+
+    const msg = error.message?.toLowerCase() || "";
+    if (error.status === 429 || msg.includes("rate limit") || msg.includes("too many")) {
+      return NextResponse.json({
+        error: "Email verification rate limit reached. Please wait a few minutes before trying again."
+      }, { status: 429 });
+    }
+    if (msg.includes("error sending confirmation email") || (error.status === 500 && msg.includes("email"))) {
+      return NextResponse.json({
+        error: "Unable to send verification email. Please verify your Supabase project SMTP/email provider configuration."
+      }, { status: 502 });
+    }
+    if (msg.includes("already registered") || (error as any).code === "user_already_exists") {
+      return NextResponse.json({
+        error: "An account with this email already exists. Please sign in instead."
+      }, { status: 409 });
+    }
+    if (msg.includes("password")) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     return NextResponse.json({ error: GENERIC_SIGNUP_ERROR }, { status: 400 });
   }
 
