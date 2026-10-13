@@ -10,7 +10,6 @@ import {
   Send,
   Save,
   CheckCircle2,
-  Check,
   FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -171,20 +170,13 @@ export default function AppRestaurantPage() {
                       color: isSelected ? "#ffffff" : "#2b2a25",
                       borderColor: isSelected ? "#963d2b" : "#ded8cb",
                     }}
-                    className={`p-3 border rounded-lg text-left transition-all duration-150 flex items-center justify-between cursor-pointer ${
+                    className={`p-3 border rounded-lg text-left transition-all duration-150 cursor-pointer ${
                       isSelected
                         ? "border-2 shadow-[0_3px_10px_rgba(185,81,58,0.22)] font-bold ring-1 ring-[#b9513a]/30 scale-[1.01]"
                         : "hover:border-[#b9513a]/50 hover:bg-[#faf7f2] font-medium"
                     }`}
                   >
                     <span className="text-xs">{type.label}</span>
-                    {isSelected ? (
-                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white text-[#b9513a] shadow-sm">
-                        <Check size={11} strokeWidth={3} />
-                      </span>
-                    ) : (
-                      <span className="h-4 w-4 shrink-0 rounded-full border-2 border-[#ded8cb] bg-white" />
-                    )}
                   </button>
                 );
               })}
@@ -230,20 +222,13 @@ export default function AppRestaurantPage() {
                       color: isSelected ? "#ffffff" : "#2b2a25",
                       borderColor: isSelected ? "#963d2b" : "#ded8cb",
                     }}
-                    className={`p-3 border rounded-lg text-left transition-all duration-150 flex items-center justify-between cursor-pointer ${
+                    className={`p-3 border rounded-lg text-left transition-all duration-150 cursor-pointer ${
                       isSelected
                         ? "border-2 shadow-[0_3px_10px_rgba(185,81,58,0.22)] font-bold ring-1 ring-[#b9513a]/30 scale-[1.01]"
                         : "hover:border-[#b9513a]/50 hover:bg-[#faf7f2] font-medium"
                     }`}
                   >
                     <div className="text-xs">{action.label}</div>
-                    {isSelected ? (
-                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white text-[#b9513a] shadow-sm">
-                        <Check size={11} strokeWidth={3} />
-                      </span>
-                    ) : (
-                      <span className="h-4 w-4 shrink-0 rounded-full border-2 border-[#ded8cb] bg-white" />
-                    )}
                   </button>
                 );
               })}
