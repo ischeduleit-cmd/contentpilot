@@ -65,6 +65,8 @@ export function ipv4HttpsFetch(url: any, options: any = {}): Promise<any> {
         req.write(options.body);
       } else if (options.body instanceof Uint8Array) {
         req.write(Buffer.from(options.body));
+      } else {
+        req.write(String(options.body));
       }
     }
 
@@ -153,9 +155,8 @@ export async function getAuthenticatedSupabaseUser(request: Request) {
   if (!supabase) return null;
 
   const { data, error } = await supabase.auth.getUser(match[1]);
-  // Supabase should only issue a usable session after email confirmation. Enforce
-  // that invariant here as well so pending signups cannot create workspaces.
-  if (error || !data.user?.id || !data.user.email || !data.user.email_confirmed_at) return null;
+  // Allow immediate email and password access without requiring prior email confirmation.
+  if (error || !data.user?.id || !data.user.email) return null;
   const registration = data.user.user_metadata?.registration;
   return {
     id: data.user.id,

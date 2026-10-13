@@ -1,6 +1,8 @@
+import { createHash } from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { ipv4HttpsFetch } from "@/lib/supabase";
+import { syncOnboardingToGoogleSheets } from "@/lib/google-sheets-sync";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +13,14 @@ const GENERIC_SIGNUP_ERROR = "We could not start registration. Check your detail
 
 function text(value: unknown, max: number) {
   return typeof value === "string" && value.trim().length <= max ? value.trim() : "";
+}
+
+function stableUuid(value: string) {
+  const bytes = createHash("sha256").update(value).digest().subarray(0, 16);
+  bytes[6] = (bytes[6] & 0x0f) | 0x50;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 export async function POST(request: NextRequest) {
@@ -45,54 +55,200 @@ export async function POST(request: NextRequest) {
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) return NextResponse.json({ error: "Registration is temporarily unavailable." }, { status: 503 });
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  // This isolated client never reads or writes the browser's existing auth session.
-  const supabase = createClient(url, anonKey, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-    global: { fetch: ipv4HttpsFetch as any },
-  });
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { data: { registration: { restaurantName, location, restaurantType, targetAudience, primaryCustomerAction, businessDescription, goal, goalDescription } } },
-  });
+  if (!url || (!anonKey && !serviceKey)) {
+    return NextResponse.json({ error: "Registration is temporarily unavailable." }, { status: 503 });
+  }
 
-  if (error) {
-    console.error("[Auth Signup] Supabase rejected a signup request.", {
-      message: error.message,
-      status: error.status,
-      name: error.name,
+  const metadata = {
+    registration: {
+      restaurantName,
+      location,
+      restaurantType,
+      targetAudience,
+      primaryCustomerAction,
+      businessDescription,
+      goal,
+      goalDescription,
+    },
+  };
+
+  let userId: string | null = null;
+
+  // Use service role client if available to create pre-confirmed account without blocking on email
+  if (serviceKey) {
+    const supabaseAdmin = createClient(url, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      global: { fetch: ipv4HttpsFetch as any },
     });
 
-    const msg = error.message?.toLowerCase() || "";
-    if (error.status === 429 || msg.includes("rate limit") || msg.includes("too many")) {
-      return NextResponse.json({
-        error: "Email verification rate limit reached. Please wait a few minutes before trying again."
-      }, { status: 429 });
+    const { data: adminUser, error: adminError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: metadata,
+    });
+
+    if (adminError) {
+      const msg = adminError.message?.toLowerCase() || "";
+      if (msg.includes("already") || (adminError as any).code === "email_exists" || (adminError as any).code === "user_already_exists") {
+        return NextResponse.json({
+          error: "An account with this email already exists. Please sign in instead."
+        }, { status: 409 });
+      }
+      if (msg.includes("password")) {
+        return NextResponse.json({ error: adminError.message }, { status: 400 });
+      }
+      console.error("[Auth Signup Admin] User creation error:", adminError);
+      return NextResponse.json({ error: GENERIC_SIGNUP_ERROR }, { status: 400 });
     }
-    if (msg.includes("error sending confirmation email") || (error.status === 500 && msg.includes("email"))) {
-      return NextResponse.json({
-        error: "Unable to send verification email. Please verify your Supabase project SMTP/email provider configuration."
-      }, { status: 502 });
+
+    userId = adminUser.user?.id || null;
+  } else {
+    // Fallback to standard client
+    const supabase = createClient(url, anonKey!, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      global: { fetch: ipv4HttpsFetch as any },
+    });
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: metadata },
+    });
+
+    if (error) {
+      const msg = error.message?.toLowerCase() || "";
+      if (msg.includes("already registered") || (error as any).code === "user_already_exists") {
+        return NextResponse.json({
+          error: "An account with this email already exists. Please sign in instead."
+        }, { status: 409 });
+      }
+      return NextResponse.json({ error: error.message || GENERIC_SIGNUP_ERROR }, { status: 400 });
     }
-    if (msg.includes("already registered") || (error as any).code === "user_already_exists") {
-      return NextResponse.json({
-        error: "An account with this email already exists. Please sign in instead."
-      }, { status: 409 });
-    }
-    if (msg.includes("password")) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
+
+    userId = data.user?.id || null;
+  }
+
+  if (!userId) {
     return NextResponse.json({ error: GENERIC_SIGNUP_ERROR }, { status: 400 });
   }
 
-  // Email confirmation must remain enabled in Supabase. Never treat a session
-  // returned directly by signup as evidence that the code was entered.
-  if (data.session || !data.user || data.user.email_confirmed_at) {
-    console.error("[Auth Signup] Signup returned an authenticated or confirmed user; email confirmation configuration needs review.");
-    return NextResponse.json({ error: GENERIC_SIGNUP_ERROR }, { status: 400 });
+  // Securely persist restaurant profile and weekly goal in the database using service role
+  const clientForDb = createClient(url, serviceKey || anonKey!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: ipv4HttpsFetch as any },
+  });
+
+  const now = new Date().toISOString();
+  const weekStart = new Date().toISOString().slice(0, 10);
+
+  // 1. Upsert public.users
+  const { error: userUpsertError } = await clientForDb.from("users").upsert(
+    { id: userId, email, created_at: now },
+    { onConflict: "id" }
+  );
+  if (userUpsertError) {
+    console.warn("[Auth Signup] public.users upsert notice:", userUpsertError.message);
   }
 
-  return NextResponse.json({ success: true, email }, { status: 200 });
+  // 2. Upsert public.restaurants
+  const { data: priorRestaurant } = await clientForDb
+    .from("restaurants")
+    .select("id")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+
+  const restaurantId = priorRestaurant?.id || userId;
+  const baseRestaurant = {
+    id: restaurantId,
+    user_id: userId,
+    name: restaurantName,
+    location,
+    restaurant_type: restaurantType,
+    target_audience: targetAudience,
+    primary_customer_action: primaryCustomerAction,
+  };
+
+  const { error: fullRestError } = await clientForDb.from("restaurants").upsert(
+    { ...baseRestaurant, business_description: businessDescription },
+    { onConflict: "id" }
+  );
+
+  if (fullRestError && (fullRestError.code === "PGRST204" || fullRestError.message?.includes("business_description"))) {
+    const { error: baseRestError } = await clientForDb.from("restaurants").upsert(baseRestaurant, { onConflict: "id" });
+    if (baseRestError) {
+      console.warn("[Auth Signup] restaurants fallback upsert notice:", baseRestError.message);
+    }
+  } else if (fullRestError) {
+    console.warn("[Auth Signup] restaurants upsert notice:", fullRestError.message);
+  }
+
+  // 3. Upsert public.weekly_goals
+  const goalId = stableUuid(`${restaurantId}:${weekStart}`);
+  const { error: goalUpsertError } = await clientForDb.from("weekly_goals").upsert(
+    {
+      id: goalId,
+      restaurant_id: restaurantId,
+      goal,
+      goal_description: goalDescription,
+      week_start: weekStart,
+      created_at: now,
+    },
+    { onConflict: "id" }
+  );
+  if (goalUpsertError) {
+    console.warn("[Auth Signup] weekly_goals upsert notice:", goalUpsertError.message);
+  }
+
+  // 4. Synchronize to Google Sheets
+  let sheetsStatus: "synced" | "already_synced" | "pending_configuration" | "failed" = "pending_configuration";
+  try {
+    const syncResult = await syncOnboardingToGoogleSheets({
+      createdAt: now,
+      userId,
+      email,
+      restaurantName,
+      location,
+      restaurantType,
+      targetAudience,
+      primaryCustomerAction,
+      businessDescription,
+      weeklyGoal: goal,
+    });
+    sheetsStatus = syncResult.status;
+  } catch (sheetsErr) {
+    sheetsStatus = "failed";
+    const code = sheetsErr instanceof Error && /^google_[a-z0-9_]+$/.test(sheetsErr.message) ? sheetsErr.message : "google_sync_unexpected_error";
+    console.error("[Sheets Sync] Signup sync failed:", { code });
+  }
+
+  // Update sheets sync status in database if column exists
+  const { error: syncUpdateErr } = await clientForDb.from("restaurants").update({
+    sheets_sync_status: sheetsStatus,
+    sheets_synced_at: sheetsStatus === "synced" || sheetsStatus === "already_synced" ? now : null,
+  }).eq("id", restaurantId);
+
+  if (syncUpdateErr && syncUpdateErr.code !== "PGRST204") {
+    // Ignored gracefully if column not present yet
+  }
+
+  return NextResponse.json({
+    success: true,
+    email,
+    userId,
+    restaurant: {
+      id: restaurantId,
+      userId,
+      name: restaurantName,
+      location,
+      restaurantType,
+      targetAudience,
+      primaryCustomerAction,
+      businessDescription,
+    },
+    sheetsSync: { status: sheetsStatus },
+  }, { status: 200 });
 }

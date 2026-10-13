@@ -56,7 +56,7 @@ export default function OnboardingProfilePage() {
     const checkAuth = async () => {
       const supabase = getSupabaseBrowserClient();
       const { data: { user } } = await supabase?.auth.getUser() || { data: { user: null } };
-      if (!user?.email_confirmed_at) router.replace("/login?next=%2Fonboarding");
+      if (!user) router.replace("/login?next=%2Fonboarding");
       else setAuthReady(true);
     };
     checkAuth().catch(() => router.replace("/login?next=%2Fonboarding"));

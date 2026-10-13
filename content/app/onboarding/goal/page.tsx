@@ -77,7 +77,7 @@ export default function OnboardingGoalPage() {
       const supabase = getSupabaseBrowserClient();
       const { data: { user } } = await supabase?.auth.getUser() || { data: { user: null } };
       const { data: { session } } = await supabase?.auth.getSession() || { data: { session: null } };
-      if (!session?.access_token || !user?.email_confirmed_at) {
+      if (!session?.access_token || !user) {
         router.replace("/login?next=%2Fonboarding");
         return;
       }

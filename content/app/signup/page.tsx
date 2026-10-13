@@ -7,6 +7,7 @@ import { ArrowLeft, CheckCircle2, UserRoundPlus } from "lucide-react";
 import { BUSINESS_GOALS, PRIMARY_ACTIONS, RESTAURANT_TYPES } from "@/lib/constants";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { authenticatedFetch } from "@/lib/authenticated-fetch";
+import { saveStoredRestaurantProfile } from "@/lib/onboarding-store";
 
 type FormData = {
   restaurantName: string; location: string; restaurantType: string; targetAudience: string;
@@ -35,7 +36,7 @@ export default function SignUpPage() {
       const { data: { session } } = await supabase?.auth.getSession() || { data: { session: null } };
       if (!active || !session?.access_token) return;
       const { data: { user } } = await supabase!.auth.getUser(session.access_token);
-      if (active && user?.email_confirmed_at) setSignedInEmail(user.email || "an existing account");
+      if (active && user) setSignedInEmail(user.email || "an existing account");
     };
     void checkExistingSession();
     return () => { active = false; };
@@ -75,11 +76,35 @@ export default function SignUpPage() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "signup_failed");
-      setForm((prev) => ({ ...prev, email }));
-      setStage("verify"); startCooldown();
-      setNotice(`If this address can be registered, a six-digit code will arrive at ${email}.`);
+
+      // Sign in with password to immediately establish browser session
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password: form.password,
+      });
+
+      if (signInError) {
+        setNotice("Account created successfully. Please sign in to open your workspace.");
+        window.setTimeout(() => router.replace(`/login?email=${encodeURIComponent(email)}`), 1200);
+        return;
+      }
+
+      if (result.restaurant) {
+        saveStoredRestaurantProfile(result.restaurant);
+      }
+
+      const syncStatus = result.sheetsSync?.status;
+      if (syncStatus === "synced" || syncStatus === "already_synced") {
+        setNotice("Restaurant saved. Registration details synced to Google Sheets.");
+      } else if (syncStatus === "pending_configuration") {
+        setNotice("Your workspace is ready. Opening your restaurant workspace…");
+      } else {
+        setNotice("Your workspace is ready. Opening your restaurant workspace…");
+      }
+
+      setStage("success");
+      window.setTimeout(() => router.replace("/app"), 1500);
     } catch (err) {
-      // Deliberately generic: Supabase may reject or suppress duplicate-address signups.
       setError(err instanceof Error && err.message !== "signup_failed" ? err.message : "We could not start registration. Check your details or sign in if you already have an account.");
     } finally { setBusy(false); }
   };
@@ -106,7 +131,7 @@ export default function SignUpPage() {
           );
           return;
         }
-        if (!data.user?.email_confirmed_at || data.user.email?.trim().toLowerCase() !== form.email.trim().toLowerCase()) {
+        if (!data.user || data.user.email?.trim().toLowerCase() !== form.email.trim().toLowerCase()) {
           throw new Error("verified_user_mismatch");
         }
         setVerified(true);
@@ -114,7 +139,7 @@ export default function SignUpPage() {
       }
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       const { data: { session } } = await supabase.auth.getSession();
-      if (userError || !user?.email_confirmed_at || user.email?.trim().toLowerCase() !== form.email.trim().toLowerCase() || !session?.access_token) throw new Error("verified_session_missing");
+      if (userError || !user || user.email?.trim().toLowerCase() !== form.email.trim().toLowerCase() || !session?.access_token) throw new Error("verified_session_missing");
       const selectedGoal = BUSINESS_GOALS.find((item) => item.id === form.goal);
       const response = await authenticatedFetch("/api/onboarding", {
         method: "POST", headers: { "Content-Type": "application/json" },

@@ -1,4 +1,5 @@
 import { createSign } from "crypto";
+import { ipv4HttpsFetch } from "@/lib/supabase";
 
 export interface RestaurantSignupRecord {
   createdAt: string;
@@ -63,11 +64,10 @@ async function googleAccessToken(creds: GoogleCredentials): Promise<string> {
   const signer = createSign("RSA-SHA256");
   signer.update(unsigned);
   const assertion = `${unsigned}.${signer.sign(creds.private_key).toString("base64url")}`;
-  const response = await fetch(TOKEN_URL, {
+  const response = await ipv4HttpsFetch(TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }),
-    signal: AbortSignal.timeout(10000),
+    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }).toString(),
   });
   if (!response.ok) throw new Error("google_token_exchange_failed");
   const tokenResponse = await response.json();
@@ -75,11 +75,10 @@ async function googleAccessToken(creds: GoogleCredentials): Promise<string> {
   return tokenResponse.access_token as string;
 }
 
-async function sheetsRequest(token: string, url: string, init?: RequestInit) {
-  const response = await fetch(url, {
+async function sheetsRequest(token: string, url: string, init?: any) {
+  const response = await ipv4HttpsFetch(url, {
     ...init,
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...init?.headers },
-    signal: AbortSignal.timeout(10000),
   });
   if (!response.ok) throw new Error(`google_sheets_http_${response.status}`);
   return response.status === 204 ? null : response.json();
@@ -114,7 +113,12 @@ export async function syncOnboardingToGoogleSheets(record: RestaurantSignupRecor
   const row = [record.createdAt, record.userId, record.email, record.restaurantName, record.location,
     record.restaurantType, record.targetAudience, record.primaryCustomerAction,
     record.businessDescription, record.weeklyGoal, "synced"];
-  const existingRowIndex = rows.findIndex((existing, index) => index > 0 && String(existing[1] || "").trim() === record.userId.trim());
+  const existingRowIndex = rows.findIndex((existing, index) =>
+    index > 0 && (
+      (existing[1] && String(existing[1]).trim() === record.userId.trim()) ||
+      (existing[2] && String(existing[2]).trim().toLowerCase() === record.email.trim().toLowerCase())
+    )
+  );
   if (existingRowIndex > 0) {
     const sheetRowNumber = existingRowIndex + 1;
     const updateRange = `${quotedTitle}!A${sheetRowNumber}:K${sheetRowNumber}`;
@@ -129,7 +133,7 @@ export async function syncOnboardingToGoogleSheets(record: RestaurantSignupRecor
 
   const appendUrl = `${SHEETS_API}/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(`${quotedTitle}!A:K`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
   const appendResult = await sheetsRequest(token, appendUrl, { method: "POST", body: JSON.stringify({ values: [row] }) });
-  if (!appendResult || (appendResult.updates && typeof appendResult.updates.updatedRows === "number" && appendResult.updates.updatedRows < 1)) {
+  if (!appendResult || !appendResult.updates || (typeof appendResult.updates.updatedRows === "number" && appendResult.updates.updatedRows < 1)) {
     throw new Error("google_sheets_append_unconfirmed");
   }
   return { synced: true, status: "synced" };

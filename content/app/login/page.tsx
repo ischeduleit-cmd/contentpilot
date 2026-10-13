@@ -32,7 +32,14 @@ export default function LoginPage() {
             const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
             if (signInError) throw signInError;
             window.location.assign(next);
-          } catch { setError("We could not sign you in. Check your email and password, or verify your email first."); }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message.toLowerCase() : "";
+            setError(
+              msg.includes("invalid") || msg.includes("credentials")
+                ? "Invalid email or password. Check your details and try again."
+                : "We could not sign you in. Check your email and password."
+            );
+          }
           finally { setBusy(false); }
         }}>
           <label className="block space-y-1.5 text-sm font-medium text-zinc-800">Email address<input className="w-full rounded-md border border-zinc-300 px-3 py-2.5 text-zinc-900" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></label>
