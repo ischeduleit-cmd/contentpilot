@@ -14,12 +14,12 @@ export async function DELETE(
     if (!id) {
       return NextResponse.json({ error: "Asset ID is required" }, { status: 400 });
     }
-    if (!restaurantId) return NextResponse.json({ error: "Restaurant ID is required." }, { status: 400 });
     const access = await verifyRestaurantOwner(req, restaurantId);
     if (!access.restaurant) return NextResponse.json({ error: "Workspace access denied." }, { status: access.status });
+    const resolvedRestaurantId = access.restaurant.id;
 
     // Verify ownership at backend level
-    const existingAsset = await getContentAssetById(id, restaurantId);
+    const existingAsset = await getContentAssetById(id, resolvedRestaurantId);
     if (!existingAsset) {
       return NextResponse.json(
         { error: "Asset not found or unauthorized for this workspace" },
@@ -37,7 +37,7 @@ export async function DELETE(
     }
 
     // 2. Delete from database metadata
-    const deleted = await deleteContentAssetRecord(id, restaurantId);
+    const deleted = await deleteContentAssetRecord(id, resolvedRestaurantId);
 
     if (!deleted) {
       return NextResponse.json(
@@ -72,13 +72,13 @@ export async function PATCH(
     if (!id) {
       return NextResponse.json({ error: "Asset ID is required" }, { status: 400 });
     }
-    if (!restaurantId) return NextResponse.json({ error: "Restaurant ID is required." }, { status: 400 });
     const access = await verifyRestaurantOwner(req, restaurantId);
     if (!access.restaurant) return NextResponse.json({ error: "Workspace access denied." }, { status: access.status });
+    const resolvedRestaurantId = access.restaurant.id;
 
     const { updateContentAssetRecord } = await import("@/lib/content-repository");
 
-    const existingAsset = await getContentAssetById(id, restaurantId);
+    const existingAsset = await getContentAssetById(id, resolvedRestaurantId);
     if (!existingAsset) {
       return NextResponse.json(
         { error: "Asset not found or unauthorized for this workspace" },
@@ -86,7 +86,7 @@ export async function PATCH(
       );
     }
 
-    const updated = await updateContentAssetRecord(id, restaurantId, {
+    const updated = await updateContentAssetRecord(id, resolvedRestaurantId, {
       aiDescription: body.aiDescription !== undefined ? body.aiDescription : existingAsset.aiDescription,
       contentType: body.contentType !== undefined ? body.contentType : existingAsset.contentType,
       contentPillar: body.contentPillar !== undefined ? body.contentPillar : existingAsset.contentPillar,

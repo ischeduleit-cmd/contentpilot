@@ -15,18 +15,15 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
-    const customRestaurantId = formData.get("restaurantId") as string;
-
-    if (!customRestaurantId) {
-      return NextResponse.json({ error: "Restaurant ID is required for upload." }, { status: 400 });
-    }
+    const customRestaurantId = formData.get("restaurantId") as string | null;
     const access = await verifyRestaurantOwner(req, customRestaurantId);
     if (!access.user || !access.restaurant) return NextResponse.json({ error: "Workspace access denied." }, { status: access.status });
+    const resolvedRestaurantId = access.restaurant.id;
     const supabase = getSupabaseServerClient();
     if (!supabase) return NextResponse.json({ error: "Workspace database is not configured." }, { status: 503 });
-    const planId = await getWorkspacePlan(supabase, access.user.id, customRestaurantId);
+    const planId = await getWorkspacePlan(supabase, access.user.id, resolvedRestaurantId);
     const plan = getPlan(planId);
-    const existingAssets = await listContentAssets(customRestaurantId);
+    const existingAssets = await listContentAssets(resolvedRestaurantId);
     if (existingAssets.length >= plan.maxAssets) {
       return NextResponse.json({ error: `Your ${plan.name} plan allows up to ${plan.maxAssets} content assets.`, code: "ASSET_LIMIT_REACHED", plan: plan.id, limit: plan.maxAssets }, { status: 403 });
     }
@@ -66,14 +63,14 @@ export async function POST(req: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    let storageKey = `${customRestaurantId}/${assetId}/${filename.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+    let storageKey = `${resolvedRestaurantId}/${assetId}/${filename.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
     let fileUrl = "";
 
     const envConfig = getSupabaseEnvConfig();
 
     if (envConfig.isConfigured) {
       const uploadRes = await uploadAssetToSupabase({
-        workspaceId: customRestaurantId,
+        workspaceId: resolvedRestaurantId,
         assetId,
         filename,
         mimeType,
@@ -92,7 +89,7 @@ export async function POST(req: NextRequest) {
 
     const newAsset: ContentAsset = {
       id: assetId,
-      restaurantId: customRestaurantId,
+      restaurantId: resolvedRestaurantId,
       fileUrl,
       fileName: filename,
       mediaType: isVideo ? "video" : "image",
@@ -110,6 +107,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       asset: savedAsset,
+      restaurant: access.restaurant,
       supabaseConnected: envConfig.isConfigured,
       missingEnv: envConfig.missing,
     });

@@ -28,7 +28,7 @@ import {
   ProcessingStatus,
 } from "@/lib/db/schema";
 import { CONTENT_PILLARS } from "@/lib/constants";
-import { getStoredRestaurantProfile } from "@/lib/onboarding-store";
+import { getStoredRestaurantProfile, saveStoredRestaurantProfile } from "@/lib/onboarding-store";
 import { authenticatedFetch } from "@/lib/authenticated-fetch";
 import { PRD_CONTENT_TYPES } from "@/lib/ai-analyzer";
 
@@ -86,21 +86,26 @@ export default function AppContentPage() {
     setRestaurantProfile(profile);
   }, []);
 
-  const restaurantId = restaurantProfile?.id || "default";
+  const restaurantId = restaurantProfile?.id && restaurantProfile.id !== "default" ? restaurantProfile.id : (getStoredRestaurantProfile()?.id || "");
 
   // Load assets from server API
   const loadAssets = React.useCallback(async () => {
     const currentProfile = getStoredRestaurantProfile();
-    const activeRestId = currentProfile?.id || "default";
+    const activeRestId = currentProfile?.id && currentProfile.id !== "default" ? currentProfile.id : "";
     try {
       setIsLoading(true);
       setLoadError(null);
-      const res = await authenticatedFetch(`/api/content/assets?restaurantId=${activeRestId}`);
+      const query = activeRestId ? `?restaurantId=${encodeURIComponent(activeRestId)}` : "";
+      const res = await authenticatedFetch(`/api/content/assets${query}`);
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || "The content library could not be loaded.");
       }
       setAssets(data.assets || []);
+      if (data.restaurant) {
+        setRestaurantProfile(data.restaurant);
+        saveStoredRestaurantProfile(data.restaurant);
+      }
       if (data.supabaseStatus) {
         setSupabaseConfigured(data.supabaseStatus.isConfigured);
         setMissingEnv(data.supabaseStatus.missing || []);
@@ -285,7 +290,10 @@ export default function AppContentPage() {
   const executeUpload = async (item: UploadItem) => {
     const formData = new FormData();
     formData.append("file", item.file);
-    formData.append("restaurantId", restaurantId);
+    const activeRestId = restaurantProfile?.id || getStoredRestaurantProfile()?.id;
+    if (activeRestId && activeRestId !== "default") {
+      formData.append("restaurantId", activeRestId);
+    }
 
     try {
       const res = await authenticatedFetch("/api/content/upload", {
@@ -297,6 +305,11 @@ export default function AppContentPage() {
 
       if (!res.ok || json.error) {
         throw new Error(json.error || "Upload failed");
+      }
+
+      if (json.restaurant) {
+        setRestaurantProfile(json.restaurant);
+        saveStoredRestaurantProfile(json.restaurant);
       }
 
       setUploadQueue((prev) =>
@@ -454,17 +467,17 @@ export default function AppContentPage() {
               variant="outline"
               disabled={isAnalyzingBatch || assets.length === 0}
               onClick={handleBatchAnalyze}
-              className="font-mono text-xs gap-2 border-zinc-700 text-zinc-200 hover:text-white hover:bg-zinc-900"
+              className="font-mono text-xs gap-2 bg-white hover:bg-zinc-100 border border-zinc-200 text-black font-bold"
             >
               {isAnalyzingBatch ? (
                 <>
-                  <RefreshCw className="w-4 h-4 animate-spin text-zinc-400" />
-                  <span>Analyzing Library...</span>
+                  <RefreshCw className="w-4 h-4 animate-spin text-black" />
+                  <span className="text-black font-bold" style={{ color: "#000000", fontWeight: "bold" }}>Analyzing Library...</span>
                 </>
               ) : (
                 <>
-                  <Scan className="w-4 h-4 text-zinc-300" />
-                  <span>Analyze Library {pendingCount > 0 ? `(${pendingCount})` : ""}</span>
+                  <Scan className="w-4 h-4 text-black" />
+                  <span className="text-black font-bold" style={{ color: "#000000", fontWeight: "bold" }}>Analyze Library {pendingCount > 0 ? `(${pendingCount})` : ""}</span>
                 </>
               )}
             </Button>
@@ -797,18 +810,18 @@ export default function AppContentPage() {
                 e.preventDefault();
                 handleFilesSelected(e.dataTransfer.files);
               }}
-              className="border-2 border-dashed border-zinc-800 hover:border-zinc-500 transition-colors p-8 text-center cursor-pointer space-y-3 bg-black/50"
+              className="border-2 border-dashed border-[#b9513a] hover:border-[#e06346] transition-all p-8 text-center cursor-pointer space-y-3 bg-[#b9513a]/15 hover:bg-[#b9513a]/25 shadow-[0_0_24px_rgba(185,81,58,0.22)] rounded-xl"
             >
-              <Upload className="w-8 h-8 mx-auto text-zinc-400" />
+              <Upload className="w-8 h-8 mx-auto text-white" />
               <div className="space-y-1">
-                <p className="text-sm font-medium text-white">
+                <p className="text-sm font-medium text-white" style={{ color: "#ffffff" }}>
                   Drop your files here, or <span className="underline">browse</span>
                 </p>
-                <p className="text-xs text-zinc-400 font-sans">
+                <p className="text-xs text-white font-sans" style={{ color: "#ffffff" }}>
                   Accepts JPG, JPEG, PNG, WEBP, MP4, MOV, WEBM
                 </p>
               </div>
-              <p className="text-[11px] text-zinc-500 font-mono">
+              <p className="text-[11px] text-white font-mono" style={{ color: "#ffffff" }}>
                 Limit: Up to 15MB for photos &middot; Up to 60MB for videos
               </p>
               <input

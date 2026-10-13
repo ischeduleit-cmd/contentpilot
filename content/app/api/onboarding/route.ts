@@ -149,10 +149,39 @@ export async function GET(req: NextRequest) {
     const applicationUserId = await resolveApplicationUserId(supabase, user);
     const { searchParams } = new URL(req.url);
     const restaurantId = searchParams.get("restaurantId");
-    let query = supabase.from("restaurants").select("*").eq("user_id", applicationUserId);
-    if (restaurantId) query = query.eq("id", restaurantId);
-    const { data, error } = await query.limit(1).maybeSingle();
+    let query = supabase.from("restaurants").select("*").or(`user_id.eq.${applicationUserId},user_id.eq.${user.id}`);
+    if (restaurantId && restaurantId !== "default" && restaurantId !== "undefined") query = query.eq("id", restaurantId);
+    let { data, error } = await query.order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (error) throw error;
+    if (!data) {
+      const reg = user.registration || {};
+      const restaurantName = (reg.restaurantName as string) || (user.email ? user.email.split("@")[0] + "'s Kitchen" : "My Restaurant");
+      const location = (reg.location as string) || "Workspace Location";
+      const restaurantType = (reg.restaurantType as string) || "restaurant";
+      const targetAudience = (reg.targetAudience as string) || "Restaurant guests";
+      const primaryCustomerAction = (reg.primaryCustomerAction as string) || "order_food";
+      const businessDescription = (reg.businessDescription as string) || "Restaurant workspace";
+
+      await supabase.from("users").upsert({
+        id: applicationUserId,
+        email: user.email.toLowerCase().trim(),
+        created_at: new Date().toISOString(),
+      }, { onConflict: "id" });
+
+      const { data: createdRest } = await supabase.from("restaurants").upsert({
+        id: user.id,
+        user_id: applicationUserId,
+        name: restaurantName,
+        location,
+        restaurant_type: restaurantType,
+        target_audience: targetAudience,
+        primary_customer_action: primaryCustomerAction,
+        business_description: businessDescription,
+        created_at: new Date().toISOString(),
+      }, { onConflict: "id" }).select("*").single();
+
+      data = createdRest;
+    }
     if (!data) return NextResponse.json({ success: false, restaurant: null, pendingRegistration: user.registration }, { status: 404 });
     let sheetsStatus = data.sheets_sync_status || "pending_configuration";
     if (sheetsStatus !== "synced" && sheetsStatus !== "already_synced") {

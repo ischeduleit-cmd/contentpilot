@@ -165,16 +165,78 @@ export async function getAuthenticatedSupabaseUser(request: Request) {
   };
 }
 
-export async function verifyRestaurantOwner(request: Request, restaurantId: string) {
+export async function verifyRestaurantOwner(request: Request, restaurantId?: string | null) {
   const user = await getAuthenticatedSupabaseUser(request);
   if (!user) return { user: null, restaurant: null, status: 401 as const };
   const supabase = getSupabaseServerClient();
   if (!supabase) return { user, restaurant: null, status: 503 as const };
   const ownerId = await resolveApplicationUserId(supabase, user);
-  const { data, error } = await supabase.from("restaurants").select("id,user_id,name,location,restaurant_type,target_audience,primary_customer_action,business_description").eq("id", restaurantId).eq("user_id", ownerId).maybeSingle();
-  if (error) return { user, restaurant: null, status: 500 as const };
-  if (!data) return { user, restaurant: null, status: 403 as const };
-  return { user, restaurant: data, status: 200 as const };
+
+  let restaurant: any = null;
+
+  // 1. If explicit valid restaurantId is provided (not 'default' or empty)
+  if (restaurantId && restaurantId !== "default" && restaurantId !== "undefined" && restaurantId.trim()) {
+    const { data } = await supabase
+      .from("restaurants")
+      .select("id,user_id,name,location,restaurant_type,target_audience,primary_customer_action,business_description")
+      .eq("id", restaurantId)
+      .or(`user_id.eq.${ownerId},user_id.eq.${user.id}`)
+      .maybeSingle();
+    if (data) restaurant = data;
+  }
+
+  // 2. If not found by provided restaurantId, resolve ANY restaurant belonging to this user
+  if (!restaurant) {
+    const { data } = await supabase
+      .from("restaurants")
+      .select("id,user_id,name,location,restaurant_type,target_audience,primary_customer_action,business_description")
+      .or(`user_id.eq.${ownerId},user_id.eq.${user.id}`)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data) restaurant = data;
+  }
+
+  // 3. If user still has no restaurant record in database, provision one so workspace access is never denied
+  if (!restaurant) {
+    const reg = (user.registration as Record<string, unknown>) || {};
+    const restaurantName = (reg.restaurantName as string) || (user.email ? user.email.split("@")[0] + "'s Kitchen" : "My Restaurant");
+    const location = (reg.location as string) || "Workspace Location";
+    const restaurantType = (reg.restaurantType as string) || "restaurant";
+    const targetAudience = (reg.targetAudience as string) || "Restaurant guests";
+    const primaryCustomerAction = (reg.primaryCustomerAction as string) || "order_food";
+    const businessDescription = (reg.businessDescription as string) || "Restaurant workspace";
+
+    await supabase.from("users").upsert({
+      id: ownerId,
+      email: user.email.toLowerCase().trim(),
+      created_at: new Date().toISOString(),
+    }, { onConflict: "id" });
+
+    const newRestId = user.id;
+    const { data: createdRest } = await supabase
+      .from("restaurants")
+      .upsert({
+        id: newRestId,
+        user_id: ownerId,
+        name: restaurantName,
+        location,
+        restaurant_type: restaurantType,
+        target_audience: targetAudience,
+        primary_customer_action: primaryCustomerAction,
+        business_description: businessDescription,
+        created_at: new Date().toISOString(),
+      }, { onConflict: "id" })
+      .select("id,user_id,name,location,restaurant_type,target_audience,primary_customer_action,business_description")
+      .single();
+
+    if (createdRest) {
+      restaurant = createdRest;
+    }
+  }
+
+  if (!restaurant) return { user, restaurant: null, status: 403 as const };
+  return { user, restaurant, status: 200 as const };
 }
 
 export async function resolveApplicationUserId(supabase: SupabaseClient, user: { id: string; email: string }) {

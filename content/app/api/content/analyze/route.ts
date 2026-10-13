@@ -16,14 +16,14 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const restaurantId: string = body.restaurantId;
-    if (!restaurantId) return NextResponse.json({ error: "Restaurant ID is required." }, { status: 400 });
-    const access = await verifyRestaurantOwner(req, restaurantId);
+    const customRestaurantId = body.restaurantId;
+    const access = await verifyRestaurantOwner(req, customRestaurantId);
     if (!access.user || !access.restaurant) return NextResponse.json({ error: "Workspace access denied." }, { status: access.status });
+    const resolvedRestaurantId = access.restaurant.id;
     const { assetId, assetIds, allPending, restaurantContext } = body;
 
     const context: Partial<RestaurantAnalysisContext> = {
-      id: restaurantId,
+      id: resolvedRestaurantId,
       ...restaurantContext,
     };
 
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
     if (assetId) {
       // Analyze single asset
-      const asset = await getContentAssetById(assetId, restaurantId);
+      const asset = await getContentAssetById(assetId, resolvedRestaurantId);
       if (!asset) {
         return NextResponse.json(
           { error: "Asset not found or unauthorized for this workspace" },
@@ -41,11 +41,11 @@ export async function POST(req: NextRequest) {
       targetAssets = [asset];
     } else if (Array.isArray(assetIds) && assetIds.length > 0) {
       // Analyze specific list of assets
-      const allAssets = await listContentAssets(restaurantId);
+      const allAssets = await listContentAssets(resolvedRestaurantId);
       targetAssets = allAssets.filter((a) => assetIds.includes(a.id));
     } else {
       // Batch analyze all pending or failed assets
-      const allAssets = await listContentAssets(restaurantId);
+      const allAssets = await listContentAssets(resolvedRestaurantId);
       if (allPending) {
         targetAssets = allAssets.filter(
           (a) =>
@@ -79,13 +79,13 @@ export async function POST(req: NextRequest) {
     for (const asset of targetAssets) {
       try {
         // Mark as analyzing
-        await updateContentAssetRecord(asset.id, restaurantId, {
+        await updateContentAssetRecord(asset.id, resolvedRestaurantId, {
           processingStatus: "analyzing",
         });
 
         const analysis = await analyzeContentAsset(asset, context);
 
-        const updated = await updateContentAssetRecord(asset.id, restaurantId, {
+        const updated = await updateContentAssetRecord(asset.id, resolvedRestaurantId, {
           aiDescription: analysis.aiDescription,
           contentType: analysis.contentType,
           contentPillar: analysis.contentPillar,
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
         }
       } catch (assetErr: any) {
         console.error(`[Analyze API] Error analyzing asset ${asset.id}:`, assetErr);
-        const failedUpdate = await updateContentAssetRecord(asset.id, restaurantId, {
+        const failedUpdate = await updateContentAssetRecord(asset.id, resolvedRestaurantId, {
           processingStatus: "failed",
         });
         if (failedUpdate) {

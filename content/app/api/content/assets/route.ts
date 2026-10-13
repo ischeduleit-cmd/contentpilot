@@ -9,13 +9,11 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const restaurantId = searchParams.get("restaurantId");
 
-    if (!restaurantId) {
-      return NextResponse.json({ error: "Restaurant ID is required." }, { status: 400 });
-    }
     const access = await verifyRestaurantOwner(req, restaurantId);
     if (!access.restaurant) return NextResponse.json({ error: "Workspace access denied." }, { status: access.status });
 
-    const assets = await listContentAssets(restaurantId);
+    const resolvedRestaurantId = access.restaurant.id;
+    const assets = await listContentAssets(resolvedRestaurantId);
 
     const photosCount = assets.filter(
       (a) => a.mediaType === "image" || a.mimeType?.startsWith("image/")
@@ -28,6 +26,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      restaurant: access.restaurant,
       assets,
       stats: {
         total: assets.length,
@@ -54,16 +53,17 @@ export async function DELETE(req: NextRequest) {
     const id = searchParams.get("id");
     const restaurantId = searchParams.get("restaurantId");
 
-    if (!id || !restaurantId) {
-      return NextResponse.json({ error: "Asset ID and Restaurant ID are required" }, { status: 400 });
+    if (!id) {
+      return NextResponse.json({ error: "Asset ID is required" }, { status: 400 });
     }
     const access = await verifyRestaurantOwner(req, restaurantId);
     if (!access.restaurant) return NextResponse.json({ error: "Workspace access denied." }, { status: access.status });
 
+    const resolvedRestaurantId = access.restaurant.id;
     const { getContentAssetById, deleteContentAssetRecord } = await import("@/lib/content-repository");
     const { deleteAssetFromSupabase } = await import("@/lib/supabase");
 
-    const existingAsset = await getContentAssetById(id, restaurantId);
+    const existingAsset = await getContentAssetById(id, resolvedRestaurantId);
     if (!existingAsset) {
       return NextResponse.json(
         { error: "Asset not found or unauthorized for this workspace" },
@@ -79,7 +79,7 @@ export async function DELETE(req: NextRequest) {
       }
     }
 
-    const deleted = await deleteContentAssetRecord(id, restaurantId);
+    const deleted = await deleteContentAssetRecord(id, resolvedRestaurantId);
 
     if (!deleted) {
       return NextResponse.json(
