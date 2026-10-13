@@ -189,7 +189,7 @@ export default function SignUpPage() {
           {field("Password", "password", { required: true, type: "password", autoComplete: "new-password", minLength: 8 })}
           {field("Confirm password", "confirmPassword", { required: true, type: "password", autoComplete: "new-password", minLength: 8 })}
         </fieldset>
-        <button type="submit" disabled={busy} className="w-full min-h-[48px] rounded-lg border border-[#b9513a] bg-[#b9513a] px-4 py-3 text-sm font-semibold text-white shadow-[0_2px_0_rgba(70,35,23,0.08)] transition-all duration-150 hover:bg-[#963d2b] hover:shadow-[0_5px_13px_rgba(92,48,32,0.15)] hover:-translate-y-0.5 disabled:opacity-60 disabled:pointer-events-none disabled:transform-none cursor-pointer">{busy ? "Creating account…" : "Create account"}</button>
+        <button type="submit" disabled={busy} style={{ backgroundColor: "#ffffff", color: "#2b2a25" }} className="w-full min-h-[48px] rounded-lg border-2 border-[#b9513a] bg-[#ffffff] px-4 py-3 text-sm font-semibold text-[#2b2a25] shadow-[0_2px_0_rgba(70,35,23,0.08)] transition-all duration-150 hover:bg-[#b9513a] hover:text-[#ffffff] hover:shadow-[0_5px_13px_rgba(92,48,32,0.15)] hover:-translate-y-0.5 disabled:opacity-60 disabled:pointer-events-none disabled:transform-none cursor-pointer">{busy ? "Creating account…" : "Create account"}</button>
       </form>}
       {stage === "verify" && <form onSubmit={verify} className="space-y-4">
         <label htmlFor="verification-code" className="block text-sm font-medium text-black">Six-digit verification code</label>
@@ -199,7 +199,7 @@ export default function SignUpPage() {
         <button type="button" onClick={resend} disabled={busy || cooldown > 0} className="w-full rounded-md border border-zinc-300 px-4 py-2.5 text-sm font-medium text-black disabled:opacity-50">{cooldown ? `Resend code in ${cooldown}s` : "Resend code"}</button>
         <button type="button" onClick={() => { setStage("register"); setCode(""); setError(""); setNotice(""); }} className="inline-flex items-center gap-2 text-sm text-zinc-600 hover:text-black"><ArrowLeft size={15} /> Return to edit registration</button>
       </form>}
-      <p className="text-center text-sm text-zinc-600">Already have a workspace? <Link className="font-semibold text-[#b9513a] underline-offset-4 hover:underline" href="/login">Sign in</Link></p>
+      <p className="text-center text-sm text-[#ffffff]" style={{ color: "#ffffff" }}>Already have a workspace? <Link className="font-semibold text-[#ffffff] underline-offset-4 hover:underline" style={{ color: "#ffffff" }} href="/login">Sign in</Link></p>
     </section>
   </main>;
 }
