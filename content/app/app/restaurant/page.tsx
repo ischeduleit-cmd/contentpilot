@@ -10,6 +10,7 @@ import {
   Send,
   Save,
   CheckCircle2,
+  Check,
   FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -157,21 +158,36 @@ export default function AppRestaurantPage() {
               <span>Establishment Type</span>
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2" role="group" aria-label="Restaurant type">
-              {RESTAURANT_TYPES.map((type) => (
-                <button
-                  type="button"
-                  key={type.id}
-                  onClick={() => handleInputChange("restaurantType", type.id)}
-                  aria-pressed={formData.restaurantType === type.id}
-                  className={`p-3 border text-left transition-all flex flex-col justify-between ${
-                    formData.restaurantType === type.id
-                      ? "border-2 border-[#b9513a] bg-white text-black font-bold shadow-sm"
-                      : "border-zinc-800 bg-white text-black hover:border-zinc-600"
-                  }`}
-                >
-                  <span className="font-bold text-xs">{type.label}</span>
-                </button>
-              ))}
+              {RESTAURANT_TYPES.map((type) => {
+                const isSelected = formData.restaurantType === type.id;
+                return (
+                  <button
+                    type="button"
+                    key={type.id}
+                    onClick={() => handleInputChange("restaurantType", type.id)}
+                    aria-pressed={isSelected}
+                    style={{
+                      backgroundColor: isSelected ? "#b9513a" : "#ffffff",
+                      color: isSelected ? "#ffffff" : "#2b2a25",
+                      borderColor: isSelected ? "#963d2b" : "#ded8cb",
+                    }}
+                    className={`p-3 border rounded-lg text-left transition-all duration-150 flex items-center justify-between cursor-pointer ${
+                      isSelected
+                        ? "border-2 shadow-[0_3px_10px_rgba(185,81,58,0.22)] font-bold ring-1 ring-[#b9513a]/30 scale-[1.01]"
+                        : "hover:border-[#b9513a]/50 hover:bg-[#faf7f2] font-medium"
+                    }`}
+                  >
+                    <span className="text-xs">{type.label}</span>
+                    {isSelected ? (
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white text-[#b9513a] shadow-sm">
+                        <Check size={11} strokeWidth={3} />
+                      </span>
+                    ) : (
+                      <span className="h-4 w-4 shrink-0 rounded-full border-2 border-[#ded8cb] bg-white" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -201,21 +217,36 @@ export default function AppRestaurantPage() {
               <span>Primary Customer Conversion Action</span>
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2" role="group" aria-label="Desired customer action">
-              {PRIMARY_ACTIONS.map((action) => (
-                <button
-                  type="button"
-                  key={action.id}
-                  onClick={() => handleInputChange("primaryCustomerAction", action.id)}
-                  aria-pressed={formData.primaryCustomerAction === action.id}
-                  className={`p-3 border text-left transition-all ${
-                    formData.primaryCustomerAction === action.id
-                      ? "border-2 border-[#b9513a] bg-white text-black font-bold shadow-sm"
-                      : "border-zinc-800 bg-white text-black hover:border-zinc-600"
-                  }`}
-                >
-                  <div className="font-bold text-xs">{action.label}</div>
-                </button>
-              ))}
+              {PRIMARY_ACTIONS.map((action) => {
+                const isSelected = formData.primaryCustomerAction === action.id;
+                return (
+                  <button
+                    type="button"
+                    key={action.id}
+                    onClick={() => handleInputChange("primaryCustomerAction", action.id)}
+                    aria-pressed={isSelected}
+                    style={{
+                      backgroundColor: isSelected ? "#b9513a" : "#ffffff",
+                      color: isSelected ? "#ffffff" : "#2b2a25",
+                      borderColor: isSelected ? "#963d2b" : "#ded8cb",
+                    }}
+                    className={`p-3 border rounded-lg text-left transition-all duration-150 flex items-center justify-between cursor-pointer ${
+                      isSelected
+                        ? "border-2 shadow-[0_3px_10px_rgba(185,81,58,0.22)] font-bold ring-1 ring-[#b9513a]/30 scale-[1.01]"
+                        : "hover:border-[#b9513a]/50 hover:bg-[#faf7f2] font-medium"
+                    }`}
+                  >
+                    <div className="text-xs">{action.label}</div>
+                    {isSelected ? (
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white text-[#b9513a] shadow-sm">
+                        <Check size={11} strokeWidth={3} />
+                      </span>
+                    ) : (
+                      <span className="h-4 w-4 shrink-0 rounded-full border-2 border-[#ded8cb] bg-white" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

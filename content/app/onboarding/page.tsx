@@ -10,6 +10,7 @@ import {
   Send,
   ArrowRight,
   CheckCircle2,
+  Check,
   Building2,
   Compass,
   ArrowLeft,
@@ -174,13 +175,25 @@ export default function OnboardingProfilePage() {
                       type="button"
                       onClick={() => handleInputChange("restaurantType", type.id)}
                       aria-pressed={isSelected}
-                      className={`onboarding-choice p-2.5 text-left border transition-all ${
+                      style={{
+                        backgroundColor: isSelected ? "#b9513a" : "#ffffff",
+                        color: isSelected ? "#ffffff" : "#2b2a25",
+                        borderColor: isSelected ? "#963d2b" : "#ded8cb",
+                      }}
+                      className={`onboarding-choice p-2.5 text-left border rounded-lg transition-all duration-150 flex items-center justify-between cursor-pointer ${
                         isSelected
-                          ? "bg-white text-black font-semibold border-white"
-                          : "bg-black text-zinc-400 border-zinc-800 hover:border-zinc-600 hover:text-white"
+                          ? "border-2 shadow-[0_3px_10px_rgba(185,81,58,0.22)] font-bold ring-1 ring-[#b9513a]/30 scale-[1.01]"
+                          : "hover:border-[#b9513a]/50 hover:bg-[#faf7f2] font-medium"
                       }`}
                     >
                       <div className="text-[11px]">{type.label}</div>
+                      {isSelected ? (
+                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white text-[#b9513a] shadow-sm">
+                          <Check size={11} strokeWidth={3} />
+                        </span>
+                      ) : (
+                        <span className="h-4 w-4 shrink-0 rounded-full border-2 border-[#ded8cb] bg-white" />
+                      )}
                     </button>
                   );
                 })}
@@ -217,14 +230,26 @@ export default function OnboardingProfilePage() {
                       key={action.id}
                       type="button"
                       onClick={() => handleInputChange("primaryCustomerAction", action.id)}
-                      className={`p-2.5 text-left border transition-all flex items-center justify-between ${
+                      aria-pressed={isSelected}
+                      style={{
+                        backgroundColor: isSelected ? "#b9513a" : "#ffffff",
+                        color: isSelected ? "#ffffff" : "#2b2a25",
+                        borderColor: isSelected ? "#963d2b" : "#ded8cb",
+                      }}
+                      className={`p-2.5 text-left border rounded-lg transition-all duration-150 flex items-center justify-between cursor-pointer ${
                         isSelected
-                          ? "bg-white text-black font-semibold border-white"
-                          : "bg-black text-zinc-400 border-zinc-800 hover:border-zinc-600 hover:text-white"
+                          ? "border-2 shadow-[0_3px_10px_rgba(185,81,58,0.22)] font-bold ring-1 ring-[#b9513a]/30 scale-[1.01]"
+                          : "hover:border-[#b9513a]/50 hover:bg-[#faf7f2] font-medium"
                       }`}
                     >
                       <span className="text-[11px]">{action.label}</span>
-                      {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-black" />}
+                      {isSelected ? (
+                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white text-[#b9513a] shadow-sm">
+                          <Check size={11} strokeWidth={3} />
+                        </span>
+                      ) : (
+                        <span className="h-4 w-4 shrink-0 rounded-full border-2 border-[#ded8cb] bg-white" />
+                      )}
                     </button>
                   );
                 })}
