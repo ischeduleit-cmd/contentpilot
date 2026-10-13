@@ -35,16 +35,16 @@ export default function LoginPage() {
           } catch (err) {
             const msg = err instanceof Error ? err.message.toLowerCase() : "";
             setError(
-              msg.includes("invalid") || msg.includes("credentials")
-                ? "Invalid email or password. Check your details and try again."
+              msg.includes("invalid") || msg.includes("credentials") || msg.includes("password")
+                ? "Incorrect email or password combination. Check your details and try again."
                 : "We could not sign you in. Check your email and password."
             );
           }
           finally { setBusy(false); }
         }}>
+          {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">{error}</div>}
           <label className="block space-y-1.5 text-sm font-medium text-zinc-800">Email address<input className="w-full rounded-md border border-zinc-300 px-3 py-2.5 text-zinc-900" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></label>
           <label className="block space-y-1.5 text-sm font-medium text-zinc-800">Password<input className="w-full rounded-md border border-zinc-300 px-3 py-2.5 text-zinc-900" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></label>
-          {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
           <button disabled={busy} className="w-full rounded-md bg-[#963d2b] px-4 py-3 text-sm font-semibold text-white disabled:opacity-60">{busy ? "Signing in…" : "Sign in"}</button>
         </form>
         <div className="flex items-center gap-3 text-xs text-zinc-400"><span className="h-px flex-1 bg-zinc-200" />OR<span className="h-px flex-1 bg-zinc-200" /></div>

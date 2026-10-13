@@ -14,6 +14,8 @@ type FormData = {
   primaryCustomerAction: string; businessDescription: string; goal: string; goalDescription: string;
   email: string; password: string; confirmPassword: string;
 };
+const WELCOME_MESSAGE = "Welcome to ContentPilot! Your restaurant workspace is ready. Let’s build a content strategy that turns your content into business growth.";
+
 const initial: FormData = { restaurantName: "", location: "", restaurantType: "restaurant", targetAudience: "", primaryCustomerAction: "order_food", businessDescription: "", goal: "get_more_orders", goalDescription: BUSINESS_GOALS[0].description, email: "", password: "", confirmPassword: "" };
 
 export default function SignUpPage() {
@@ -55,7 +57,7 @@ export default function SignUpPage() {
     if (!form.restaurantName.trim() || !form.location.trim() || !form.targetAudience.trim() || !form.businessDescription.trim()) { setError("Complete all restaurant details before continuing."); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError("Enter a valid email address."); return; }
     if (form.password.length < 8) { setError("Use a password with at least 8 characters."); return; }
-    if (form.password !== form.confirmPassword) { setError("The passwords do not match."); return; }
+    if (form.password !== form.confirmPassword) { setError("The passwords do not match. Please ensure both passwords match."); return; }
     const supabase = getSupabaseBrowserClient();
     if (!supabase) { setError("Sign-up is not configured. Please try again later."); return; }
     setBusy(true);
@@ -93,17 +95,9 @@ export default function SignUpPage() {
         saveStoredRestaurantProfile(result.restaurant);
       }
 
-      const syncStatus = result.sheetsSync?.status;
-      if (syncStatus === "synced" || syncStatus === "already_synced") {
-        setNotice("Restaurant saved. Registration details synced to Google Sheets.");
-      } else if (syncStatus === "pending_configuration") {
-        setNotice("Your workspace is ready. Opening your restaurant workspace…");
-      } else {
-        setNotice("Your workspace is ready. Opening your restaurant workspace…");
-      }
-
+      setNotice(WELCOME_MESSAGE);
       setStage("success");
-      window.setTimeout(() => router.replace("/app"), 1500);
+      window.setTimeout(() => router.replace("/app"), 2000);
     } catch (err) {
       setError(err instanceof Error && err.message !== "signup_failed" ? err.message : "We could not start registration. Check your details or sign in if you already have an account.");
     } finally { setBusy(false); }
@@ -147,16 +141,9 @@ export default function SignUpPage() {
       });
       if (!response.ok) throw new Error("profile_save_failed");
       const completion = await response.json();
-      const syncStatus = completion.sheetsSync?.status;
-      if (syncStatus === "synced" || syncStatus === "already_synced") {
-        setNotice("Restaurant saved. Registration details synced to Google Sheets.");
-      } else if (syncStatus === "pending_configuration") {
-        setNotice("Your workspace is ready. Google Sheets sync is waiting for server credentials; it can be retried after configuration.");
-      } else {
-        setNotice("Your workspace is ready. Google Sheets sync did not complete and will be retried when your workspace is loaded.");
-      }
+      setNotice(WELCOME_MESSAGE);
       setStage("success");
-      window.setTimeout(() => router.replace("/app"), 1800);
+      window.setTimeout(() => router.replace("/app"), 2000);
     } catch {
       setError(didVerify ? "Your email is verified, but we could not finish saving the workspace. Retry to complete setup." : "We could not verify that code. Check it or request a new one.");
     } finally { setBusy(false); }
@@ -174,45 +161,45 @@ export default function SignUpPage() {
     finally { setBusy(false); }
   };
 
-  const inputClass = "w-full rounded-md border border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-[#963d2b] focus:ring-2 focus:ring-[#963d2b]/20";
-  const field = (label: string, key: keyof FormData, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => <label className="block space-y-1.5 text-sm font-medium text-zinc-800">{label}<input className={inputClass} value={form[key]} onChange={(e) => change(key, e.target.value)} {...props} /></label>;
+  const inputClass = "w-full rounded-md border border-zinc-300 bg-white px-3.5 py-2.5 text-sm text-black outline-none focus:border-[#b9513a] focus:ring-2 focus:ring-[#b9513a]/20";
+  const field = (label: string, key: keyof FormData, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => <label className="block space-y-1.5 text-sm font-medium text-black">{label}<input className={inputClass} value={form[key]} onChange={(e) => change(key, e.target.value)} {...props} /></label>;
 
   return <main className="min-h-[68vh] flex-1 bg-black px-4 py-10 text-white selection:bg-white selection:text-black sm:py-14">
-    <section className={`mx-auto w-full space-y-7 rounded-xl border border-zinc-200 bg-white p-6 text-zinc-900 shadow-sm sm:p-9 ${stage === "register" ? "max-w-3xl" : "max-w-md"}`}>
+    <section className={`mx-auto w-full space-y-8 rounded-xl border-2 border-[#b9513a] bg-white p-7 text-black shadow-[0_12px_30px_rgba(123,59,38,0.09)] sm:p-10 ${stage === "register" ? "max-w-3xl" : "max-w-md"}`}>
       <div className="space-y-3 text-center">
         <span className="mx-auto grid h-11 w-11 place-items-center rounded-lg bg-[#b9513a] text-white">{stage === "success" ? <CheckCircle2 size={20} /> : <UserRoundPlus size={20} />}</span>
-        <h1 className="font-serif text-3xl">{stage === "register" ? "Create your workspace" : stage === "verify" ? "Check your email" : "Your workspace is ready"}</h1>
-        <p className="text-sm leading-6 text-zinc-600">{stage === "register" ? "Add your restaurant and account details to get started." : stage === "verify" ? `Enter the six-digit code sent to ${form.email}. Codes expire after 15 minutes.` : "Your email is verified. Opening your restaurant workspace…"}</p>
+        <h1 className="font-serif text-3xl text-black">{stage === "register" ? "Create your workspace" : stage === "verify" ? "Check your email" : "Welcome to ContentPilot!"}</h1>
+        <p className="text-sm leading-6 text-black/80">{stage === "register" ? "Add your restaurant and account details to get started." : stage === "verify" ? `Enter the six-digit code sent to ${form.email}. Codes expire after 15 minutes.` : WELCOME_MESSAGE}</p>
       </div>
-      {error && <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
-      {notice && <p role="status" className="rounded-md bg-zinc-100 p-3 text-sm text-zinc-700">{notice}</p>}
+      {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">{error}</div>}
+      {notice && <p role="status" className="rounded-md border border-[#b9513a]/30 bg-[#b9513a]/10 p-3.5 text-sm font-medium text-black">{notice}</p>}
       {stage === "register" && signedInEmail && <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><p>This browser already has a verified session for {signedInEmail}. That session is separate from this registration and may already have workspace access.</p><button type="button" className="mt-2 font-semibold underline" onClick={async () => { await getSupabaseBrowserClient()?.auth.signOut({ scope: "local" }); setSignedInEmail(""); }}>Sign out of this browser before testing a new account</button></div>}
       {stage === "register" && <form onSubmit={register} className="space-y-6">
-        <fieldset className="grid gap-4 sm:grid-cols-2"><legend className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Restaurant information</legend>
+        <fieldset className="grid gap-4 sm:grid-cols-2"><legend className="mb-3 text-xs font-semibold uppercase tracking-wider text-black">Restaurant information</legend>
           {field("Restaurant name", "restaurantName", { required: true, maxLength: 255, autoComplete: "organization" })}
           {field("Location", "location", { required: true, maxLength: 255, placeholder: "City, neighborhood" })}
-          <label className="block space-y-1.5 text-sm font-medium text-zinc-800">Restaurant type<select className={inputClass} value={form.restaurantType} onChange={(e) => change("restaurantType", e.target.value)}>{RESTAURANT_TYPES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
-          <label className="block space-y-1.5 text-sm font-medium text-zinc-800">Target customers<textarea className={inputClass} required maxLength={1000} rows={2} value={form.targetAudience} onChange={(e) => change("targetAudience", e.target.value)} /></label>
-          <label className="block space-y-1.5 text-sm font-medium text-zinc-800">Desired customer action<select className={inputClass} value={form.primaryCustomerAction} onChange={(e) => change("primaryCustomerAction", e.target.value)}>{PRIMARY_ACTIONS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
-          <label className="block space-y-1.5 text-sm font-medium text-zinc-800">Weekly business goal<select className={inputClass} value={form.goal} onChange={(e) => change("goal", e.target.value)}>{BUSINESS_GOALS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
-          <label className="block space-y-1.5 text-sm font-medium text-zinc-800 sm:col-span-2">Business description<textarea className={inputClass} required maxLength={5000} rows={3} value={form.businessDescription} onChange={(e) => change("businessDescription", e.target.value)} placeholder="Describe your food, service, and what makes the restaurant distinctive." /></label>
+          <label className="block space-y-1.5 text-sm font-medium text-black">Restaurant type<select className={inputClass} value={form.restaurantType} onChange={(e) => change("restaurantType", e.target.value)}>{RESTAURANT_TYPES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+          <label className="block space-y-1.5 text-sm font-medium text-black">Target customers<textarea className={inputClass} required maxLength={1000} rows={2} value={form.targetAudience} onChange={(e) => change("targetAudience", e.target.value)} /></label>
+          <label className="block space-y-1.5 text-sm font-medium text-black">Desired customer action<select className={inputClass} value={form.primaryCustomerAction} onChange={(e) => change("primaryCustomerAction", e.target.value)}>{PRIMARY_ACTIONS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+          <label className="block space-y-1.5 text-sm font-medium text-black">Weekly business goal<select className={inputClass} value={form.goal} onChange={(e) => change("goal", e.target.value)}>{BUSINESS_GOALS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+          <label className="block space-y-1.5 text-sm font-medium text-black sm:col-span-2">Business description<textarea className={inputClass} required maxLength={5000} rows={3} value={form.businessDescription} onChange={(e) => change("businessDescription", e.target.value)} placeholder="Describe your food, service, and what makes the restaurant distinctive." /></label>
         </fieldset>
-        <fieldset className="grid gap-4 sm:grid-cols-2"><legend className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Account information</legend>
+        <fieldset className="grid gap-4 sm:grid-cols-2"><legend className="mb-3 text-xs font-semibold uppercase tracking-wider text-black">Account information</legend>
           {field("Email address", "email", { required: true, type: "email", autoComplete: "email", maxLength: 255 })}
           {field("Password", "password", { required: true, type: "password", autoComplete: "new-password", minLength: 8 })}
           {field("Confirm password", "confirmPassword", { required: true, type: "password", autoComplete: "new-password", minLength: 8 })}
         </fieldset>
-        <button disabled={busy} className="w-full rounded-md bg-[#963d2b] px-4 py-3 text-sm font-semibold text-white hover:bg-[#7c3022] disabled:opacity-60">{busy ? "Creating account…" : "Create account"}</button>
+        <button type="submit" disabled={busy} className="w-full min-h-[48px] rounded-lg border border-[#b9513a] bg-[#b9513a] px-4 py-3 text-sm font-semibold text-white shadow-[0_2px_0_rgba(70,35,23,0.08)] transition-all duration-150 hover:bg-[#963d2b] hover:shadow-[0_5px_13px_rgba(92,48,32,0.15)] hover:-translate-y-0.5 disabled:opacity-60 disabled:pointer-events-none disabled:transform-none cursor-pointer">{busy ? "Creating account…" : "Create account"}</button>
       </form>}
       {stage === "verify" && <form onSubmit={verify} className="space-y-4">
-        <label htmlFor="verification-code" className="block text-sm font-medium text-zinc-800">Six-digit verification code</label>
+        <label htmlFor="verification-code" className="block text-sm font-medium text-black">Six-digit verification code</label>
         <input id="verification-code" className={`${inputClass} text-center text-xl tracking-[0.5em]`} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} required aria-describedby="otp-help" />
         <p id="otp-help" className="text-xs text-zinc-500">If it expires, request another code. Supabase also enforces its configured verification and rate limits.</p>
-        <button disabled={busy} className="w-full rounded-md bg-[#963d2b] px-4 py-3 text-sm font-semibold text-white disabled:opacity-60">{busy ? "Verifying…" : verified ? "Retry workspace setup" : "Verify and open workspace"}</button>
-        <button type="button" onClick={resend} disabled={busy || cooldown > 0} className="w-full rounded-md border border-zinc-300 px-4 py-2.5 text-sm font-medium disabled:opacity-50">{cooldown ? `Resend code in ${cooldown}s` : "Resend code"}</button>
-        <button type="button" onClick={() => { setStage("register"); setCode(""); setError(""); setNotice(""); }} className="inline-flex items-center gap-2 text-sm text-zinc-600 hover:text-zinc-900"><ArrowLeft size={15} /> Return to edit registration</button>
+        <button type="submit" disabled={busy} className="w-full min-h-[48px] rounded-lg border border-[#b9513a] bg-[#b9513a] px-4 py-3 text-sm font-semibold text-white shadow-[0_2px_0_rgba(70,35,23,0.08)] transition-all duration-150 hover:bg-[#963d2b] hover:shadow-[0_5px_13px_rgba(92,48,32,0.15)] disabled:opacity-60 cursor-pointer">{busy ? "Verifying…" : verified ? "Retry workspace setup" : "Verify and open workspace"}</button>
+        <button type="button" onClick={resend} disabled={busy || cooldown > 0} className="w-full rounded-md border border-zinc-300 px-4 py-2.5 text-sm font-medium text-black disabled:opacity-50">{cooldown ? `Resend code in ${cooldown}s` : "Resend code"}</button>
+        <button type="button" onClick={() => { setStage("register"); setCode(""); setError(""); setNotice(""); }} className="inline-flex items-center gap-2 text-sm text-zinc-600 hover:text-black"><ArrowLeft size={15} /> Return to edit registration</button>
       </form>}
-      <p className="text-center text-sm text-zinc-600">Already have a workspace? <Link className="font-semibold text-[#963d2b] underline-offset-4 hover:underline" href="/login">Sign in</Link></p>
+      <p className="text-center text-sm text-zinc-600">Already have a workspace? <Link className="font-semibold text-[#b9513a] underline-offset-4 hover:underline" href="/login">Sign in</Link></p>
     </section>
   </main>;
 }

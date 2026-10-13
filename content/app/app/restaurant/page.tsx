@@ -165,8 +165,8 @@ export default function AppRestaurantPage() {
                   aria-pressed={formData.restaurantType === type.id}
                   className={`p-3 border text-left transition-all flex flex-col justify-between ${
                     formData.restaurantType === type.id
-                      ? "border-white bg-black text-white"
-                      : "border-zinc-800 bg-black/40 text-zinc-400 hover:text-white"
+                      ? "border-2 border-[#b9513a] bg-white text-black font-bold shadow-sm"
+                      : "border-zinc-800 bg-white text-black hover:border-zinc-600"
                   }`}
                 >
                   <span className="font-bold text-xs">{type.label}</span>
@@ -209,8 +209,8 @@ export default function AppRestaurantPage() {
                   aria-pressed={formData.primaryCustomerAction === action.id}
                   className={`p-3 border text-left transition-all ${
                     formData.primaryCustomerAction === action.id
-                      ? "border-white bg-black text-white font-bold"
-                      : "border-zinc-800 bg-black/40 text-zinc-400 hover:text-white"
+                      ? "border-2 border-[#b9513a] bg-white text-black font-bold shadow-sm"
+                      : "border-zinc-800 bg-white text-black hover:border-zinc-600"
                   }`}
                 >
                   <div className="font-bold text-xs">{action.label}</div>
