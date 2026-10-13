@@ -176,7 +176,6 @@ export async function GET(req: NextRequest) {
         restaurant_type: restaurantType,
         target_audience: targetAudience,
         primary_customer_action: primaryCustomerAction,
-        business_description: businessDescription,
         created_at: new Date().toISOString(),
       }, { onConflict: "id" }).select("*").single();
 

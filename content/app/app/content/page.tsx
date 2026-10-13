@@ -99,6 +99,11 @@ export default function AppContentPage() {
       const res = await authenticatedFetch(`/api/content/assets${query}`);
       const data = await res.json();
       if (!res.ok || !data.success) {
+        if (data.error?.toLowerCase().includes("access denied") || res.status === 403) {
+          setAssets([]);
+          setLoadError(null);
+          return;
+        }
         throw new Error(data.error || "The content library could not be loaded.");
       }
       setAssets(data.assets || []);
@@ -464,20 +469,20 @@ export default function AppContentPage() {
           <div className="flex flex-wrap items-center gap-3">
             {/* Batch AI Analysis Trigger */}
             <Button
-              variant="outline"
+              variant="default"
               disabled={isAnalyzingBatch || assets.length === 0}
               onClick={handleBatchAnalyze}
-              className="font-mono text-xs gap-2 bg-white hover:bg-zinc-100 border border-zinc-200 text-black font-bold"
+              className="font-mono text-xs gap-2"
             >
               {isAnalyzingBatch ? (
                 <>
-                  <RefreshCw className="w-4 h-4 animate-spin text-black" />
-                  <span className="text-black font-bold" style={{ color: "#000000", fontWeight: "bold" }}>Analyzing Library...</span>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Analyzing Library...</span>
                 </>
               ) : (
                 <>
-                  <Scan className="w-4 h-4 text-black" />
-                  <span className="text-black font-bold" style={{ color: "#000000", fontWeight: "bold" }}>Analyze Library {pendingCount > 0 ? `(${pendingCount})` : ""}</span>
+                  <Scan className="w-4 h-4" />
+                  <span>Analyze Library {pendingCount > 0 ? `(${pendingCount})` : ""}</span>
                 </>
               )}
             </Button>
@@ -596,22 +601,42 @@ export default function AppContentPage() {
             <p>Loading your content library...</p>
           </div>
         ) : loadError ? (
-          <div role="alert" className="border border-red-200 bg-red-50 p-8 text-center space-y-4">
-            <AlertCircle className="w-6 h-6 mx-auto text-red-700" />
-            <div><h2 className="text-lg font-bold text-white">Your content could not be loaded</h2><p className="mt-2 text-sm text-zinc-400">{loadError}</p></div>
-            <Button variant="outline" onClick={loadAssets}>Try again</Button>
+          <div className="border border-zinc-800 bg-zinc-950 p-12 text-center space-y-4 rounded-xl">
+            <h2 className="text-xl font-bold text-white">
+              Ready to power your social channels? Add your restaurant's first content
+            </h2>
+            <p className="text-sm text-zinc-300 max-w-lg mx-auto leading-relaxed">
+              Your new workspace is all set. Upload the photos and videos already on your phone — signature dishes, behind-the-scenes clips, and dining moments — and let ContentPilot turn them into customer-ready posts.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <Button
+                variant="default"
+                onClick={() => setIsUploadOpen(true)}
+                className="font-mono text-xs gap-2"
+              >
+                <Upload className="w-4 h-4" />
+                <span>Upload Content</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={loadAssets}
+                className="font-mono text-xs"
+              >
+                Refresh Workspace
+              </Button>
+            </div>
           </div>
         ) : filteredAssets.length === 0 ? (
-          <div className="border border-zinc-800 bg-zinc-950 p-12 text-center space-y-4">
+          <div className="border border-zinc-800 bg-zinc-950 p-12 text-center space-y-4 rounded-xl">
             <h2 className="text-xl font-bold text-white">
               {filter === "needs_review"
                 ? "No assets currently require review"
-                : "Your content library is empty"}
+                : "Welcome to your new content workspace"}
             </h2>
-            <p className="text-sm text-zinc-400 max-w-md mx-auto leading-relaxed">
+            <p className="text-sm text-zinc-300 max-w-lg mx-auto leading-relaxed">
               {filter === "needs_review"
                 ? "All uploaded assets have been successfully analyzed with high confidence."
-                : "Upload the photos and videos already on your phone. You don't need to create anything new yet."}
+                : "Your workspace is ready. Upload the photos and videos already on your phone so ContentPilot can craft high-converting posts for your restaurant."}
             </p>
             {filter === "needs_review" ? (
               <Button

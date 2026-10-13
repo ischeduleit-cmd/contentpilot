@@ -178,7 +178,7 @@ export async function verifyRestaurantOwner(request: Request, restaurantId?: str
   if (restaurantId && restaurantId !== "default" && restaurantId !== "undefined" && restaurantId.trim()) {
     const { data } = await supabase
       .from("restaurants")
-      .select("id,user_id,name,location,restaurant_type,target_audience,primary_customer_action,business_description")
+      .select("id,user_id,name,location,restaurant_type,target_audience,primary_customer_action,created_at")
       .eq("id", restaurantId)
       .or(`user_id.eq.${ownerId},user_id.eq.${user.id}`)
       .maybeSingle();
@@ -189,7 +189,7 @@ export async function verifyRestaurantOwner(request: Request, restaurantId?: str
   if (!restaurant) {
     const { data } = await supabase
       .from("restaurants")
-      .select("id,user_id,name,location,restaurant_type,target_audience,primary_customer_action,business_description")
+      .select("id,user_id,name,location,restaurant_type,target_audience,primary_customer_action,created_at")
       .or(`user_id.eq.${ownerId},user_id.eq.${user.id}`)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -205,7 +205,6 @@ export async function verifyRestaurantOwner(request: Request, restaurantId?: str
     const restaurantType = (reg.restaurantType as string) || "restaurant";
     const targetAudience = (reg.targetAudience as string) || "Restaurant guests";
     const primaryCustomerAction = (reg.primaryCustomerAction as string) || "order_food";
-    const businessDescription = (reg.businessDescription as string) || "Restaurant workspace";
 
     await supabase.from("users").upsert({
       id: ownerId,
@@ -214,7 +213,7 @@ export async function verifyRestaurantOwner(request: Request, restaurantId?: str
     }, { onConflict: "id" });
 
     const newRestId = user.id;
-    const { data: createdRest } = await supabase
+    const { data: createdRest, error: createError } = await supabase
       .from("restaurants")
       .upsert({
         id: newRestId,
@@ -224,19 +223,27 @@ export async function verifyRestaurantOwner(request: Request, restaurantId?: str
         restaurant_type: restaurantType,
         target_audience: targetAudience,
         primary_customer_action: primaryCustomerAction,
-        business_description: businessDescription,
         created_at: new Date().toISOString(),
       }, { onConflict: "id" })
-      .select("id,user_id,name,location,restaurant_type,target_audience,primary_customer_action,business_description")
+      .select("id,user_id,name,location,restaurant_type,target_audience,primary_customer_action,created_at")
       .single();
 
     if (createdRest) {
       restaurant = createdRest;
+    } else if (createError) {
+      console.warn("[Auto-provision restaurant warning]:", createError.message);
     }
   }
 
   if (!restaurant) return { user, restaurant: null, status: 403 as const };
-  return { user, restaurant, status: 200 as const };
+  return {
+    user,
+    restaurant: {
+      ...restaurant,
+      business_description: (restaurant.business_description as string) || (user.registration?.businessDescription as string) || "",
+    },
+    status: 200 as const,
+  };
 }
 
 export async function resolveApplicationUserId(supabase: SupabaseClient, user: { id: string; email: string }) {
