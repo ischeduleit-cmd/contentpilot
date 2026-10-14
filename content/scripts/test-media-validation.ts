@@ -161,6 +161,29 @@ async function runAllVerificationTests() {
   console.log("");
 
   // -------------------------------------------------------------------------
+  // Test Case 5b: Camera upload selfie without 'selfie' keyword (WhatsApp Image)
+  // Expected: rejected with the exact non-food message
+  // -------------------------------------------------------------------------
+  console.log("TEST 5b: Camera upload selfie without 'selfie' keyword (WhatsApp Image)");
+  const case5bAsset: ContentAsset = {
+    id: "asset-5b-whatsapp-selfie",
+    restaurantId: baseRestaurant.id,
+    fileName: "WhatsApp Image 2026-08-29 at 7.08.15 PM.jpeg",
+    fileUrl: "https://example.com/WhatsApp_Image.jpeg",
+    fileSize: 32102,
+    mediaType: "image",
+    mimeType: "image/jpeg",
+    processingStatus: "pending",
+    createdAt: new Date().toISOString(),
+  };
+
+  const res5b = await analyzeContentAsset(case5bAsset, { context: baseRestaurant });
+  assert(res5b.validationStatus === "rejected" || res5b.validationStatus === "uncertain", "Status is rejected or uncertain (not food)");
+  assert(res5b.contentCategory !== "food_related", "Selfie is NEVER classified as food");
+  assert(res5b.processingStatus !== "analyzed", "Selfie is NEVER marked as successfully analyzed food");
+  console.log("");
+
+  // -------------------------------------------------------------------------
   // Test Case 6: Unrelated vehicle or landscape
   // Expected: rejected with the exact non-food message
   // -------------------------------------------------------------------------

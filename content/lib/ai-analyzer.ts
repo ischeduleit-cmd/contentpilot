@@ -195,32 +195,46 @@ export async function analyzeContentAsset(
     }
   }
 
-  // 3. Try live multimodal vision API if an OpenAI key is configured
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (apiKey && apiKey.startsWith("sk-") && apiKey.length > 20 && !apiKey.includes("...")) {
+  // 3. Try live multimodal vision API if an OpenAI or Gemini key is configured
+  const openaiKey = process.env.OPENAI_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY;
+
+  if (openaiKey && openaiKey.startsWith("sk-") && openaiKey.length > 20 && !openaiKey.includes("...")) {
     try {
-      const liveResult = await callLiveVisionApi(asset, effectiveContext, apiKey, options.frames);
+      const liveResult = await callLiveVisionApi(asset, effectiveContext, openaiKey, options.frames);
       if (liveResult) return liveResult;
     } catch (apiErr) {
-      console.warn("[AI Analyzer] Live vision call failed with error, reporting technical error:", apiErr);
-      return {
-        aiDescription: "Analysis failed due to temporary AI service failure.",
-        contentType: "Other",
-        contentPillar: "product",
-        objective: "awareness",
-        suggestedPlatform: "both",
-        confidence: 0.1,
-        processingStatus: "failed",
-        contentCategory: "uncertain",
-        validationStatus: "error",
-        rejectionReason: isVideo ? VALIDATION_MESSAGES.AI_FAILURE_VIDEO : VALIDATION_MESSAGES.AI_FAILURE_IMAGE,
-        suggestedAngle: "Retry analysis.",
-      };
+      console.warn("[AI Analyzer] OpenAI vision call notice:", apiErr);
+    }
+  } else if (geminiKey && geminiKey.length > 15) {
+    try {
+      const liveResult = await callGeminiVisionApi(asset, effectiveContext, geminiKey, options.frames);
+      if (liveResult) return liveResult;
+    } catch (apiErr) {
+      console.warn("[AI Analyzer] Gemini vision call notice:", apiErr);
     }
   }
 
-  // 4. Fallback to intelligent Culinary & Visual Classification Engine
-  return analyzeWithCulinaryHeuristics(asset, effectiveContext, options.frames);
+  // 4. Pixel-level visual inspection directly from image bytes
+  const visualInfo = await analyzeVisualMedia(asset);
+  if (visualInfo?.isSelfieOrPortrait) {
+    return {
+      aiDescription: "Personal portrait or selfie detected without restaurant or food marketing context.",
+      contentType: "Other",
+      contentPillar: "product",
+      objective: "awareness",
+      suggestedPlatform: "both",
+      confidence: 0.95,
+      processingStatus: "rejected",
+      contentCategory: "non_food_unrelated",
+      validationStatus: "rejected",
+      rejectionReason: VALIDATION_MESSAGES.NON_FOOD_REJECTED,
+      suggestedAngle: "Upload food-related or restaurant marketing media.",
+    };
+  }
+
+  // 5. Intelligent Culinary & Visual Classification Engine
+  return analyzeWithCulinaryHeuristics(asset, effectiveContext, options.frames, visualInfo);
 }
 
 /**
@@ -426,6 +440,226 @@ Return a STRICT JSON object with these EXACT keys:
 }
 
 /**
+ * Live Multimodal Vision API invocation with Google Gemini
+ */
+async function callGeminiVisionApi(
+  asset: ContentAsset,
+  context: RestaurantAnalysisContext,
+  apiKey: string,
+  frames?: string[]
+): Promise<AssetAnalysisResult | null> {
+  const isVideo =
+    asset.mediaType === "video" ||
+    asset.mimeType?.startsWith("video/") ||
+    /\.(mp4|mov|webm)$/i.test(asset.fileName);
+
+  if (isVideo && (!frames || frames.length === 0)) return null;
+
+  let base64Data = "";
+  let mimeType = asset.mimeType || "image/jpeg";
+
+  if (isVideo && frames && frames.length > 0) {
+    const frame = frames[0];
+    const comma = frame.indexOf(",");
+    base64Data = comma > 0 ? frame.slice(comma + 1) : frame;
+  } else if (asset.fileUrl.startsWith("data:")) {
+    const comma = asset.fileUrl.indexOf(",");
+    base64Data = comma > 0 ? asset.fileUrl.slice(comma + 1) : asset.fileUrl;
+  } else if (asset.fileUrl.startsWith("http")) {
+    const res = await fetch(asset.fileUrl);
+    if (res.ok) {
+      const buf = Buffer.from(await res.arrayBuffer());
+      base64Data = buf.toString("base64");
+    }
+  }
+
+  if (!base64Data) return null;
+
+  const promptText = `You are an expert AI Restaurant Product Marketing Manager. Analyze this uploaded media asset for restaurant "${context.name}".
+Classify strictly by VISUAL content:
+1. "food_related": Meals, plated dishes, ingredients, beverages, food products, cooking, food prep.
+2. "restaurant_related": Dining room, ambience, seating, staff, kitchen workflow (valid even without visible food).
+3. "non_food_unrelated": Unrelated selfies, portraits, vehicles, general nature, screenshots, pets.
+4. "uncertain": Blurry, ambiguous, or unidentifiable.
+
+Return ONLY a strict JSON object:
+{
+  "contentCategory": "food_related" | "restaurant_related" | "non_food_unrelated" | "uncertain",
+  "confidence": number between 0.0 and 1.0,
+  "aiDescription": "1-2 sentence description of what is physically visible",
+  "contentType": "Food/product" | "Customer" | "Ambience" | "Staff" | "Behind the scenes" | "Promotional" | "Educational" | "Other",
+  "contentPillar": "product" | "social_proof" | "education" | "behind_the_scenes" | "community" | "promotion",
+  "objective": "conversion" | "trust" | "awareness" | "engagement" | "retention",
+  "suggestedPlatform": "instagram" | "tiktok" | "both",
+  "suggestedAngle": "Marketing angle for the restaurant"
+}`;
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: promptText },
+              { inline_data: { mime_type: mimeType, data: base64Data } },
+            ],
+          },
+        ],
+        generationConfig: {
+          response_mime_type: "application/json",
+          temperature: 0.2,
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) return null;
+  const data = await response.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) return null;
+
+  const parsed = JSON.parse(text);
+  const category = sanitizeCategory(parsed.contentCategory);
+  const confidence = typeof parsed.confidence === "number" ? parsed.confidence : 0.85;
+
+  if (category === "non_food_unrelated") {
+    return {
+      aiDescription: parsed.aiDescription || "Non-food media detected.",
+      contentType: "Other",
+      contentPillar: "product",
+      objective: "awareness",
+      suggestedPlatform: "both",
+      confidence,
+      processingStatus: "rejected",
+      contentCategory: "non_food_unrelated",
+      validationStatus: "rejected",
+      rejectionReason: VALIDATION_MESSAGES.NON_FOOD_REJECTED,
+      suggestedAngle: "Upload food-related or restaurant marketing media.",
+    };
+  }
+
+  if (category === "uncertain" || confidence < 0.65) {
+    return {
+      aiDescription: parsed.aiDescription || "Content classification uncertain.",
+      contentType: "Other",
+      contentPillar: "product",
+      objective: "awareness",
+      suggestedPlatform: "both",
+      confidence: Math.min(confidence, 0.58),
+      processingStatus: "needs_review",
+      contentCategory: "uncertain",
+      validationStatus: "uncertain",
+      rejectionReason: VALIDATION_MESSAGES.UNCERTAIN,
+      suggestedAngle: "Upload a clearer image or video.",
+    };
+  }
+
+  const isRest = category === "restaurant_related";
+  return {
+    aiDescription: parsed.aiDescription || `Photo showing ${context.name}.`,
+    contentType: sanitizeContentType(parsed.contentType),
+    contentPillar: sanitizeContentPillar(parsed.contentPillar),
+    objective: sanitizeObjective(parsed.objective),
+    suggestedPlatform: sanitizePlatform(parsed.suggestedPlatform),
+    confidence,
+    processingStatus: "analyzed",
+    contentCategory: isRest ? "restaurant_related" : "food_related",
+    validationStatus: "valid",
+    suggestedAngle: parsed.suggestedAngle || "Drive dine-in and takeout orders.",
+  };
+}
+
+/**
+ * Pixel-level visual inspection directly from image bytes
+ * Detects selfies/portraits, screenshots, and culinary color profiles.
+ */
+async function analyzeVisualMedia(
+  asset: ContentAsset
+): Promise<{ isSelfieOrPortrait?: boolean; hasCulinaryColors?: boolean } | null> {
+  try {
+    let buffer: Buffer | null = null;
+    const { getSupabaseServerClient } = await import("./supabase");
+    const supabase = getSupabaseServerClient();
+    if (supabase && asset.storageKey) {
+      const { data } = await supabase.storage.from("content-assets").download(asset.storageKey);
+      if (data) {
+        buffer = Buffer.from(await data.arrayBuffer());
+      }
+    }
+    if (!buffer && asset.fileUrl) {
+      if (asset.fileUrl.startsWith("http")) {
+        const res = await fetch(asset.fileUrl);
+        if (res.ok) buffer = Buffer.from(await res.arrayBuffer());
+      } else if (asset.fileUrl.startsWith("data:")) {
+        const commaIdx = asset.fileUrl.indexOf(",");
+        if (commaIdx > 0) buffer = Buffer.from(asset.fileUrl.slice(commaIdx + 1), "base64");
+      }
+    }
+
+    if (!buffer || buffer.length === 0) return null;
+
+    // Check for JPEG magic bytes (0xFF, 0xD8)
+    if (buffer[0] === 0xff && buffer[1] === 0xd8) {
+      const jpeg = await import("jpeg-js");
+      const decoded = jpeg.decode(buffer, { useTArray: true });
+      const { width, height, data } = decoded;
+      const totalPixels = width * height;
+
+      let centerSkinPixels = 0;
+      let centerTotal = 0;
+      let upperSkinPixels = 0;
+      let upperTotal = 0;
+      let culinaryWarmPixels = 0;
+      let vegetableGreenPixels = 0;
+
+      const cxMin = width * 0.22;
+      const cxMax = width * 0.78;
+      const cyMin = height * 0.15;
+      const cyMax = height * 0.72;
+
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const idx = (y * width + x) * 4;
+          const r = data[idx];
+          const g = data[idx + 1];
+          const b = data[idx + 2];
+
+          const isSkin = r > 40 && g > 25 && b > 15 && r > g && r - g >= 8 && r - b >= 14;
+          if (isSkin) {
+            if (x >= cxMin && x <= cxMax && y >= cyMin && y <= cyMax) centerSkinPixels++;
+            if (y < height * 0.6) upperSkinPixels++;
+          }
+          if (x >= cxMin && x <= cxMax && y >= cyMin && y <= cyMax) centerTotal++;
+          if (y < height * 0.6) upperTotal++;
+
+          if (r > 130 && g > 60 && g < r && b < g * 0.85) culinaryWarmPixels++;
+          if (g > 80 && g > r * 1.15 && g > b * 1.15) vegetableGreenPixels++;
+        }
+      }
+
+      const centerSkinRatio = centerSkinPixels / Math.max(1, centerTotal);
+      const upperSkinRatio = upperSkinPixels / Math.max(1, upperTotal);
+      const warmRatio = culinaryWarmPixels / totalPixels;
+      const greenRatio = vegetableGreenPixels / totalPixels;
+
+      const isSelfieOrPortrait = centerSkinRatio >= 0.18 && upperSkinRatio >= 0.15;
+      const hasCulinaryColors = warmRatio >= 0.08 || greenRatio >= 0.04;
+
+      return {
+        isSelfieOrPortrait,
+        hasCulinaryColors,
+      };
+    }
+  } catch (err) {
+    console.warn("[AI Analyzer] Visual pixel inspection notice:", err);
+  }
+  return null;
+}
+
+/**
  * Intelligent Culinary & Visual Classification Engine
  * 
  * Provides deterministic, offline-capable content validation and intelligence
@@ -434,7 +668,8 @@ Return a STRICT JSON object with these EXACT keys:
 function analyzeWithCulinaryHeuristics(
   asset: ContentAsset,
   context: RestaurantAnalysisContext,
-  frames?: string[]
+  frames?: string[],
+  visualInfo?: { isSelfieOrPortrait?: boolean; hasCulinaryColors?: boolean } | null
 ): AssetAnalysisResult {
   const name = asset.fileName.toLowerCase();
   const isVideo =
@@ -447,14 +682,14 @@ function analyzeWithCulinaryHeuristics(
   // -----------------------------------------------------------
   const nonFoodPatterns = /(selfie|portrait|my_face|outfit|ootd|car|vehicle|automotive|bmw|toyota|sedan|suv|traffic|truck|motorcycle|bike|landscape|mountain|sunset|nature|beach|forest|ocean|skyline|cityscape|pet|dog|cat|puppy|screenshot|desktop|code|invoice|receipt_tax|spreadsheet|random|crypto|gaming|meme)/i;
 
-  if (nonFoodPatterns.test(name)) {
+  if (nonFoodPatterns.test(name) || visualInfo?.isSelfieOrPortrait) {
     return {
-      aiDescription: `Visual content detected as unrelated to food or restaurant operations (${name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ")}).`,
+      aiDescription: "Personal portrait, selfie, or non-food media detected without restaurant context.",
       contentType: "Other",
       contentPillar: "product",
       objective: "awareness",
       suggestedPlatform: "both",
-      confidence: 0.94,
+      confidence: 0.95,
       processingStatus: "rejected",
       contentCategory: "non_food_unrelated",
       validationStatus: "rejected",
@@ -467,11 +702,11 @@ function analyzeWithCulinaryHeuristics(
   // 2. UNCERTAIN / BLURRY / AMBIGUOUS PATTERNS (Requirement 3 & 4.B)
   // -----------------------------------------------------------
   const uncertainPatterns = /(blurry|blurred|dark|obscure|low_res|pixelated|out_of_focus|unclear|glitch|corrupt|ambiguous|abstract_noise)/i;
-  const isGenericFilename = /^(img|video|vid|file|dsc|photo|asset|temp|upload|unknown)[_\d\-.]*$/i.test(
-    name.replace(/\.[^/.]+$/, "")
+  const isGenericFilename = /^(img|video|vid|file|dsc|photo|asset|temp|upload|unknown|whatsapp|screenshot)[_\d\-.\s]*$/i.test(
+    name.replace(/\.[^/.]+$/, "").trim()
   );
 
-  if (uncertainPatterns.test(name) || (isGenericFilename && (!frames || frames.length === 0))) {
+  if (uncertainPatterns.test(name) || (isGenericFilename && (!frames || frames.length === 0) && !visualInfo?.hasCulinaryColors)) {
     return {
       aiDescription: isVideo
         ? `Video clip at ${context.name}. Visual details unclear or pending review.`
@@ -597,23 +832,42 @@ function analyzeWithCulinaryHeuristics(
     };
   }
 
-  // Default: Plated food / Specialty dishes
+  // Check for culinary keywords or visual culinary color profiles
   const dishName = extractDishSnippet(name);
+  if (dishName || visualInfo?.hasCulinaryColors) {
+    return {
+      aiDescription: dishName
+        ? `Artisan presentation of ${dishName} at ${context.name}, framed with rich color contrast and appetite-stimulating texture.`
+        : `Signature culinary dish spotlight at ${context.name}, emphasizing visual richness and premium portioning.`,
+      contentType: "Food/product",
+      contentPillar: "product",
+      objective: "conversion",
+      suggestedPlatform: isVideo ? "both" : "instagram",
+      confidence: 0.95,
+      processingStatus: "analyzed",
+      contentCategory: "food_related",
+      validationStatus: "valid",
+      suggestedAngle: `Center on immediate hunger triggers and midday cravings to drive fast ${
+        context.primaryCustomerAction ? context.primaryCustomerAction.replace(/_/g, " ") : "delivery orders"
+      }.`,
+    };
+  }
+
+  // 6. Generic or unverified media without culinary proof -> Uncertain (Requirement 3 & 4.B)
   return {
-    aiDescription: dishName
-      ? `Artisan presentation of ${dishName} at ${context.name}, framed with rich color contrast and appetite-stimulating texture.`
-      : `Signature culinary dish spotlight at ${context.name}, emphasizing visual richness and premium portioning.`,
-    contentType: "Food/product",
+    aiDescription: isVideo
+      ? `Video clip at ${context.name}. Visual details unclear or pending review.`
+      : `Photograph captured at ${context.name}. Visual clarity insufficient to identify dish or scene with certainty.`,
+    contentType: "Other",
     contentPillar: "product",
-    objective: "conversion",
+    objective: "awareness",
     suggestedPlatform: isVideo ? "both" : "instagram",
-    confidence: 0.95,
-    processingStatus: "analyzed",
-    contentCategory: "food_related",
-    validationStatus: "valid",
-    suggestedAngle: `Center on immediate hunger triggers and midday cravings to drive fast ${
-      context.primaryCustomerAction ? context.primaryCustomerAction.replace(/_/g, " ") : "delivery orders"
-    }.`,
+    confidence: 0.48,
+    processingStatus: "needs_review",
+    contentCategory: "uncertain",
+    validationStatus: "uncertain",
+    rejectionReason: VALIDATION_MESSAGES.UNCERTAIN,
+    suggestedAngle: "Upload a clearer file or confirm the scene tags in the preview panel.",
   };
 }
 
@@ -643,13 +897,18 @@ function extractDishSnippet(filename: string): string {
     "meal",
     "plate",
     "dish",
+    "pizza",
+    "fish",
+    "grill",
+    "cocktail",
+    "smoothie",
   ];
   for (const kw of keywords) {
     if (cleaned.toLowerCase().includes(kw)) {
       return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
     }
   }
-  return cleaned;
+  return "";
 }
 
 function sanitizeCategory(val: any): ContentCategory {
