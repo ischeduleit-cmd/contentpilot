@@ -9,7 +9,7 @@ import { getWorkspacePlan } from "@/lib/entitlements";
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const ACCEPTED_VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm"];
 const MAX_IMAGE_SIZE_BYTES = 15 * 1024 * 1024; // 15MB
-const MAX_VIDEO_SIZE_BYTES = 60 * 1024 * 1024; // 60MB
+const MAX_VIDEO_SIZE_BYTES = 200 * 1024 * 1024; // 200MB
 
 export async function POST(req: NextRequest) {
   try {
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     if (fileSize > limit) {
       return NextResponse.json(
         {
-          error: `File exceeds maximum allowed size of ${isVideo ? "60MB" : "15MB"}.`,
+          error: `File exceeds maximum allowed size of ${isVideo ? "200MB" : "15MB"}.`,
         },
         { status: 400 }
       );

@@ -176,12 +176,28 @@ export type MediaType =
   | "video/mp4"
   | "video/quicktime";
 
+export type ContentCategory =
+  | "food_related"
+  | "restaurant_related"
+  | "non_food_unrelated"
+  | "uncertain";
+
+export type ValidationStatus =
+  | "valid"
+  | "rejected"
+  | "uncertain"
+  | "unsupported"
+  | "error"
+  | "pending";
+
 export type ProcessingStatus =
   | "pending"
   | "analyzing"
   | "ready"
   | "analyzed"
   | "needs_review"
+  | "rejected"
+  | "uncertain"
   | "failed"
   | "error";
 
@@ -203,6 +219,9 @@ export interface ContentAsset {
   suggestedAngle?: string;
   confidence?: number; // 0.00 to 1.00
   processingStatus: ProcessingStatus;
+  contentCategory?: ContentCategory;
+  validationStatus?: ValidationStatus;
+  rejectionReason?: string;
   createdAt: string;
   updatedAt?: string;
 }

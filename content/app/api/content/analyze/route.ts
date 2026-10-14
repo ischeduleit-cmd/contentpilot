@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const access = await verifyRestaurantOwner(req, customRestaurantId);
     if (!access.user || !access.restaurant) return NextResponse.json({ error: "Workspace access denied." }, { status: access.status });
     const resolvedRestaurantId = access.restaurant.id;
-    const { assetId, assetIds, allPending, restaurantContext } = body;
+    const { assetId, assetIds, allPending, restaurantContext, frames } = body;
 
     const context: Partial<RestaurantAnalysisContext> = {
       id: resolvedRestaurantId,
@@ -83,7 +83,10 @@ export async function POST(req: NextRequest) {
           processingStatus: "analyzing",
         });
 
-        const analysis = await analyzeContentAsset(asset, context);
+        const analysis = await analyzeContentAsset(asset, {
+          context,
+          frames: assetId && Array.isArray(frames) ? frames : undefined,
+        });
 
         const updated = await updateContentAssetRecord(asset.id, resolvedRestaurantId, {
           aiDescription: analysis.aiDescription,
@@ -94,6 +97,9 @@ export async function POST(req: NextRequest) {
           suggestedAngle: analysis.suggestedAngle,
           confidence: analysis.confidence,
           processingStatus: analysis.processingStatus,
+          contentCategory: analysis.contentCategory,
+          validationStatus: analysis.validationStatus,
+          rejectionReason: analysis.rejectionReason,
         });
 
         if (updated) {
@@ -101,8 +107,17 @@ export async function POST(req: NextRequest) {
         }
       } catch (assetErr: any) {
         console.error(`[Analyze API] Error analyzing asset ${asset.id}:`, assetErr);
+        const isVideo =
+          asset.mediaType === "video" ||
+          asset.mimeType?.startsWith("video/") ||
+          /\.(mp4|mov|webm)$/i.test(asset.fileName);
+
         const failedUpdate = await updateContentAssetRecord(asset.id, resolvedRestaurantId, {
           processingStatus: "failed",
+          validationStatus: "error",
+          rejectionReason: isVideo
+            ? "We couldn't analyze this video right now. Please try again."
+            : "We couldn't analyze this image right now. Please try again.",
         });
         if (failedUpdate) {
           updatedAssets.push(failedUpdate);

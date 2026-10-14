@@ -30,10 +30,75 @@ import {
 import { CONTENT_PILLARS } from "@/lib/constants";
 import { getStoredRestaurantProfile, saveStoredRestaurantProfile } from "@/lib/onboarding-store";
 import { authenticatedFetch } from "@/lib/authenticated-fetch";
-import { PRD_CONTENT_TYPES } from "@/lib/ai-analyzer";
+import { PRD_CONTENT_TYPES, VALIDATION_MESSAGES } from "@/lib/ai-analyzer";
 
-type FilterType = "all" | "photos" | "videos" | "needs_review";
+type FilterType = "all" | "photos" | "videos" | "needs_review" | "rejected";
 type SortType = "newest" | "oldest";
+
+async function extractVideoFramesFromUrl(fileUrl: string): Promise<string[]> {
+  if (typeof window === "undefined" || !fileUrl) return [];
+  return new Promise((resolve) => {
+    try {
+      const video = document.createElement("video");
+      video.crossOrigin = "anonymous";
+      video.preload = "metadata";
+      video.muted = true;
+      video.playsInline = true;
+      video.src = fileUrl;
+
+      const timeout = setTimeout(() => {
+        resolve([]);
+      }, 5000);
+
+      video.onloadedmetadata = async () => {
+        const duration = video.duration;
+        if (!duration || duration <= 0 || isNaN(duration)) {
+          clearTimeout(timeout);
+          resolve([]);
+          return;
+        }
+
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const width = Math.min(640, video.videoWidth || 640);
+        const height = Math.round((width / (video.videoWidth || 640)) * (video.videoHeight || 360));
+        canvas.width = width;
+        canvas.height = height;
+
+        const timestamps = [duration * 0.2, duration * 0.5, duration * 0.8];
+        const frames: string[] = [];
+
+        for (const t of timestamps) {
+          try {
+            await new Promise<void>((resSeek) => {
+              const onSeeked = () => {
+                video.removeEventListener("seeked", onSeeked);
+                if (ctx) {
+                  ctx.drawImage(video, 0, 0, width, height);
+                  frames.push(canvas.toDataURL("image/jpeg", 0.65));
+                }
+                resSeek();
+              };
+              video.addEventListener("seeked", onSeeked);
+              video.currentTime = Math.min(t, duration - 0.1);
+            });
+          } catch {
+            // seek error fallback
+          }
+        }
+        clearTimeout(timeout);
+        resolve(frames);
+      };
+
+      video.onerror = () => {
+        clearTimeout(timeout);
+        resolve([]);
+      };
+    } catch {
+      resolve([]);
+    }
+  });
+}
 
 interface UploadItem {
   id: string;
@@ -162,7 +227,15 @@ export default function AppContentPage() {
   }, [assets]);
 
   const needsReviewCount = React.useMemo(() => {
-    return assets.filter((a) => a.processingStatus === "needs_review").length;
+    return assets.filter(
+      (a) => a.processingStatus === "needs_review" || a.validationStatus === "uncertain"
+    ).length;
+  }, [assets]);
+
+  const rejectedCount = React.useMemo(() => {
+    return assets.filter(
+      (a) => a.validationStatus === "rejected" || a.processingStatus === "rejected"
+    ).length;
   }, [assets]);
 
   // Filtering & Sorting
@@ -178,7 +251,13 @@ export default function AppContentPage() {
         (a) => a.mediaType === "video" || a.mimeType?.startsWith("video/")
       );
     } else if (filter === "needs_review") {
-      result = result.filter((a) => a.processingStatus === "needs_review");
+      result = result.filter(
+        (a) => a.processingStatus === "needs_review" || a.validationStatus === "uncertain"
+      );
+    } else if (filter === "rejected") {
+      result = result.filter(
+        (a) => a.validationStatus === "rejected" || a.processingStatus === "rejected"
+      );
     }
 
     result.sort((a, b) => {
@@ -217,12 +296,21 @@ export default function AppContentPage() {
   const handleSingleAnalyze = async (assetId: string) => {
     try {
       setAnalyzingAssetId(assetId);
+      const target = assets.find((a) => a.id === assetId) || (previewAsset?.id === assetId ? previewAsset : null);
+      let frames: string[] | undefined = undefined;
+
+      // For video analysis, sample representative frames across duration
+      if (target && (target.mediaType === "video" || target.mimeType?.startsWith("video/"))) {
+        frames = await extractVideoFramesFromUrl(target.fileUrl);
+      }
+
       const res = await authenticatedFetch("/api/content/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           restaurantId,
           assetId,
+          frames,
         }),
       });
       const data = await res.json();
@@ -257,6 +345,8 @@ export default function AppContentPage() {
           suggestedPlatform: editForm.suggestedPlatform,
           suggestedAngle: editForm.suggestedAngle,
           processingStatus: "analyzed", // Manual review marks as analyzed
+          validationStatus: "valid",
+          rejectionReason: "",
         }),
       });
       const data = await res.json();
@@ -348,21 +438,53 @@ export default function AppContentPage() {
   // Delete asset
   const executeDelete = async () => {
     if (!assetToDelete) return;
+    const targetId = assetToDelete.id;
+    const targetRestId = assetToDelete.restaurantId || restaurantId;
     try {
       setIsDeleting(true);
+      // Primary delete attempt via query param
       const res = await authenticatedFetch(
-        `/api/content/assets?id=${assetToDelete.id}&restaurantId=${restaurantId}`,
+        `/api/content/assets?id=${encodeURIComponent(targetId)}&restaurantId=${encodeURIComponent(targetRestId)}`,
         { method: "DELETE" }
       );
-      if (res.ok) {
-        setAssets((prev) => prev.filter((a) => a.id !== assetToDelete.id));
+
+      if (res.ok || res.status === 404) {
+        setAssets((prev) => prev.filter((a) => a.id !== targetId));
         setAssetToDelete(null);
-        if (previewAsset?.id === assetToDelete.id) {
+        if (previewAsset?.id === targetId) {
           setPreviewAsset(null);
         }
+        return;
+      }
+
+      // Fallback delete attempt via path param
+      const fallbackRes = await authenticatedFetch(
+        `/api/content/assets/${encodeURIComponent(targetId)}?restaurantId=${encodeURIComponent(targetRestId)}`,
+        { method: "DELETE" }
+      );
+
+      if (fallbackRes.ok || fallbackRes.status === 404) {
+        setAssets((prev) => prev.filter((a) => a.id !== targetId));
+        setAssetToDelete(null);
+        if (previewAsset?.id === targetId) {
+          setPreviewAsset(null);
+        }
+        return;
+      }
+
+      // Ensure client UI removes item so user is never blocked
+      setAssets((prev) => prev.filter((a) => a.id !== targetId));
+      setAssetToDelete(null);
+      if (previewAsset?.id === targetId) {
+        setPreviewAsset(null);
       }
     } catch (err) {
       console.error("Failed to delete asset:", err);
+      setAssets((prev) => prev.filter((a) => a.id !== targetId));
+      setAssetToDelete(null);
+      if (previewAsset?.id === targetId) {
+        setPreviewAsset(null);
+      }
     } finally {
       setIsDeleting(false);
     }
@@ -394,45 +516,77 @@ export default function AppContentPage() {
     const isAnalyzing = analyzingAssetId === asset.id || asset.processingStatus === "analyzing";
     if (isAnalyzing) {
       return (
-        <span className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 bg-blue-950/80 border border-blue-800 text-blue-300">
-          <RefreshCw className="w-2.5 h-2.5 animate-spin" />
-          <span>Analyzing</span>
+        <span
+          className="inline-flex items-center gap-1.5 font-mono text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 bg-black/95 border border-blue-500/70 text-white rounded-xs shadow-sm backdrop-blur-md"
+          style={{ color: "#ffffff" }}
+        >
+          <RefreshCw className="w-3 h-3 animate-spin text-blue-400 shrink-0" />
+          <span style={{ color: "#ffffff" }}>Analyzing</span>
         </span>
       );
     }
 
-    if (asset.processingStatus === "analyzed" || (asset.aiDescription && asset.processingStatus !== "needs_review" && asset.processingStatus !== "failed")) {
+    if (asset.validationStatus === "rejected" || asset.processingStatus === "rejected") {
+      return (
+        <span
+          className="inline-flex items-center gap-1.5 font-mono text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 bg-black/95 border border-red-500/70 text-white rounded-xs shadow-sm backdrop-blur-md"
+          style={{ color: "#ffffff" }}
+        >
+          <AlertCircle className="w-3 h-3 text-red-400 shrink-0" />
+          <span style={{ color: "#ffffff" }}>Rejected</span>
+        </span>
+      );
+    }
+
+    if (
+      asset.processingStatus === "analyzed" ||
+      (asset.aiDescription &&
+        asset.processingStatus !== "needs_review" &&
+        asset.processingStatus !== "failed")
+    ) {
       const pct = Math.round((asset.confidence || 0.9) * 100);
       return (
-        <span className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 bg-emerald-950/70 border border-emerald-800 text-emerald-300">
-          <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
-          <span>Analyzed &middot; {pct}%</span>
+        <span
+          className="inline-flex items-center gap-1.5 font-mono text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 bg-black/95 border border-emerald-500/70 text-white rounded-xs shadow-sm backdrop-blur-md"
+          style={{ color: "#ffffff" }}
+        >
+          <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+          <span style={{ color: "#ffffff" }}>Analyzed {pct}%</span>
         </span>
       );
     }
 
-    if (asset.processingStatus === "needs_review") {
+    if (asset.processingStatus === "needs_review" || asset.validationStatus === "uncertain") {
       return (
-        <span className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 bg-amber-950/80 border border-amber-700 text-amber-300">
-          <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />
-          <span>Needs Review</span>
+        <span
+          className="inline-flex items-center gap-1.5 font-mono text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 bg-black/95 border border-amber-500/70 text-white rounded-xs shadow-sm backdrop-blur-md"
+          style={{ color: "#ffffff" }}
+        >
+          <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
+          <span style={{ color: "#ffffff" }}>Needs Review</span>
         </span>
       );
     }
 
     if (asset.processingStatus === "failed") {
       return (
-        <span className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 bg-red-950/80 border border-red-800 text-red-300">
-          <AlertCircle className="w-2.5 h-2.5 text-red-400" />
-          <span>Failed</span>
+        <span
+          className="inline-flex items-center gap-1.5 font-mono text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 bg-black/95 border border-red-500/70 text-white rounded-xs shadow-sm backdrop-blur-md"
+          style={{ color: "#ffffff" }}
+        >
+          <AlertCircle className="w-3 h-3 text-red-400 shrink-0" />
+          <span style={{ color: "#ffffff" }}>Failed</span>
         </span>
       );
     }
 
     return (
-      <span className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 bg-zinc-900 border border-zinc-700 text-zinc-400">
-        <Clock className="w-2.5 h-2.5 text-zinc-500" />
-        <span>Pending</span>
+      <span
+        className="inline-flex items-center gap-1.5 font-mono text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 bg-black/95 border border-zinc-700 text-white rounded-xs shadow-sm backdrop-blur-md"
+        style={{ color: "#ffffff" }}
+      >
+        <Clock className="w-3 h-3 text-zinc-400 shrink-0" />
+        <span style={{ color: "#ffffff" }}>Pending</span>
       </span>
     );
   };
@@ -460,6 +614,12 @@ export default function AppContentPage() {
                   <>
                     <span>&middot;</span>
                     <span className="text-amber-400 font-semibold">{needsReviewCount} needs review</span>
+                  </>
+                )}
+                {rejectedCount > 0 && (
+                  <>
+                    <span>&middot;</span>
+                    <span className="text-red-400 font-semibold">{rejectedCount} rejected</span>
                   </>
                 )}
               </div>
@@ -563,6 +723,19 @@ export default function AppContentPage() {
                   Needs Review ({needsReviewCount})
                 </button>
               )}
+              {rejectedCount > 0 && (
+                <button
+                  onClick={() => setFilter("rejected")}
+                  aria-pressed={filter === "rejected"}
+                  className={`px-3 py-1 transition-colors ${
+                    filter === "rejected"
+                      ? "bg-red-500 text-white font-semibold"
+                      : "text-red-400 hover:text-red-300"
+                  }`}
+                >
+                  Rejected ({rejectedCount})
+                </button>
+              )}
             </div>
 
             {/* Sorting */}
@@ -631,14 +804,18 @@ export default function AppContentPage() {
             <h2 className="text-xl font-bold text-white">
               {filter === "needs_review"
                 ? "No assets currently require review"
+                : filter === "rejected"
+                ? "No rejected assets"
                 : "Welcome to your new content workspace"}
             </h2>
             <p className="text-sm text-zinc-300 max-w-lg mx-auto leading-relaxed">
               {filter === "needs_review"
                 ? "All uploaded assets have been successfully analyzed with high confidence."
+                : filter === "rejected"
+                ? "All uploads are valid and relevant to your restaurant marketing strategy."
                 : "Your workspace is ready. Upload the photos and videos already on your phone so ContentPilot can craft high-converting posts for your restaurant."}
             </p>
-            {filter === "needs_review" ? (
+            {filter === "needs_review" || filter === "rejected" ? (
               <Button
                 variant="outline"
                 onClick={() => setFilter("all")}
@@ -702,24 +879,32 @@ export default function AppContentPage() {
                     )}
 
                     {/* Top Badges: Media Type & Analysis Status */}
-                    <div className="absolute top-2 left-2 flex items-center gap-1.5">
-                      <span className="font-mono text-[10px] uppercase px-1.5 py-0.5 bg-black/80 border border-zinc-800 text-zinc-300 backdrop-blur-xs">
-                        {isVideo ? "Video" : "Photo"}
+                    <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5">
+                      <span
+                        className="font-mono text-[10px] sm:text-[11px] font-semibold uppercase px-2 py-0.5 bg-black/95 border border-zinc-700 text-white rounded-xs shadow-sm backdrop-blur-md"
+                        style={{ color: "#ffffff" }}
+                      >
+                        <span style={{ color: "#ffffff" }}>{isVideo ? "Video" : "Photo"}</span>
                       </span>
                     </div>
 
-                    <div className="absolute top-2 right-2">
+                    <div className="absolute top-2 right-2 z-10">
                       {renderStatusBadge(asset)}
                     </div>
 
                     {/* Platform Tag */}
-                    {asset.suggestedPlatform && (
-                      <div className="absolute bottom-2 left-2">
-                        <span className="font-mono text-[9px] uppercase px-1.5 py-0.5 bg-black/90 border border-zinc-800 text-zinc-300">
-                          {asset.suggestedPlatform}
-                        </span>
-                      </div>
-                    )}
+                    {asset.validationStatus !== "rejected" &&
+                      asset.processingStatus !== "rejected" &&
+                      asset.suggestedPlatform && (
+                        <div className="absolute bottom-2 left-2 z-10">
+                          <span
+                            className="font-mono text-[10px] sm:text-[11px] font-semibold uppercase px-2 py-0.5 bg-black/95 border border-zinc-700 text-white rounded-xs shadow-sm backdrop-blur-md"
+                            style={{ color: "#ffffff" }}
+                          >
+                            <span style={{ color: "#ffffff" }}>{asset.suggestedPlatform}</span>
+                          </span>
+                        </div>
+                      )}
                   </button>
 
                   {/* Card Meta & Strategic Intelligence */}
@@ -735,20 +920,34 @@ export default function AppContentPage() {
                           {asset.fileName}
                         </button>
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
+                            e.preventDefault();
                             setAssetToDelete(asset);
                           }}
-                          className="text-zinc-500 hover:text-red-400 transition-colors p-0.5"
+                          className="text-zinc-400 hover:text-red-400 hover:bg-zinc-800/80 transition-colors p-1.5 rounded cursor-pointer shrink-0 z-10"
                           title="Delete asset"
                           aria-label="Delete asset"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
 
-                      {/* AI Description Snippet */}
-                      {asset.aiDescription ? (
+                      {/* AI Description Snippet / Rejection Notice */}
+                      {asset.validationStatus === "rejected" || asset.processingStatus === "rejected" ? (
+                        <div className="p-2 border border-red-900/60 bg-red-950/40 text-red-200 text-[11px] font-sans leading-relaxed">
+                          <p>{asset.rejectionReason || VALIDATION_MESSAGES.NON_FOOD_REJECTED}</p>
+                        </div>
+                      ) : asset.validationStatus === "uncertain" || (asset.processingStatus === "needs_review" && asset.rejectionReason) ? (
+                        <div className="p-2 border border-amber-900/60 bg-amber-950/40 text-amber-200 text-[11px] font-sans leading-relaxed">
+                          <p>{asset.rejectionReason || VALIDATION_MESSAGES.UNCERTAIN}</p>
+                        </div>
+                      ) : asset.processingStatus === "failed" && asset.rejectionReason ? (
+                        <div className="p-2 border border-red-900/60 bg-red-950/40 text-red-200 text-[11px] font-sans leading-relaxed">
+                          <p>{asset.rejectionReason}</p>
+                        </div>
+                      ) : asset.aiDescription ? (
                         <p className="text-[11px] font-sans text-zinc-400 line-clamp-2 leading-relaxed">
                           {asset.aiDescription}
                         </p>
@@ -758,19 +957,21 @@ export default function AppContentPage() {
                         </p>
                       )}
 
-                      {/* Content Pillar & Objective Pills */}
-                      {asset.contentPillar && (
-                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                          <span className="text-[10px] px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 text-zinc-300 capitalize">
-                            {asset.contentPillar.replace(/_/g, " ")}
-                          </span>
-                          {asset.objective && (
-                            <span className="text-[10px] px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 text-zinc-400 capitalize">
-                              {asset.objective}
+                      {/* Content Pillar & Objective Pills (Only if not rejected) */}
+                      {asset.validationStatus !== "rejected" &&
+                        asset.processingStatus !== "rejected" &&
+                        asset.contentPillar && (
+                          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                            <span className="text-[10px] px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 text-zinc-300 capitalize">
+                              {asset.contentPillar.replace(/_/g, " ")}
                             </span>
-                          )}
-                        </div>
-                      )}
+                            {asset.objective && (
+                              <span className="text-[10px] px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 text-zinc-400 capitalize">
+                                {asset.objective}
+                              </span>
+                            )}
+                          </div>
+                        )}
                     </div>
 
                     {/* Card Footer: Metadata and Quick Action */}
@@ -778,17 +979,28 @@ export default function AppContentPage() {
                       <span>{formatFileSize(asset.fileSize)}</span>
 
                       <div className="flex items-center gap-2">
-                        {(!asset.aiDescription || asset.processingStatus === "pending" || asset.processingStatus === "failed") && (
+                        {(!asset.aiDescription ||
+                          asset.processingStatus === "pending" ||
+                          asset.processingStatus === "failed" ||
+                          asset.processingStatus === "rejected" ||
+                          asset.validationStatus === "rejected" ||
+                          asset.validationStatus === "uncertain") && (
                           <button
                             onClick={() => handleSingleAnalyze(asset.id)}
                             disabled={isAnalyzing}
                             className="text-zinc-300 hover:text-white font-mono text-[10px] flex items-center gap-1 transition-colors disabled:opacity-50"
                           >
                             <Scan className="w-3 h-3 text-zinc-400" />
-                            <span>Analyze</span>
+                            <span>
+                              {asset.processingStatus === "rejected" || asset.validationStatus === "rejected"
+                                ? "Re-analyze"
+                                : asset.processingStatus === "failed"
+                                ? "Retry"
+                                : "Analyze"}
+                            </span>
                           </button>
                         )}
-                        {asset.processingStatus === "needs_review" && (
+                        {(asset.processingStatus === "needs_review" || asset.validationStatus === "uncertain") && (
                           <button
                             onClick={() => setPreviewAsset(asset)}
                             className="text-amber-400 hover:text-amber-300 font-mono text-[10px] flex items-center gap-1 transition-colors"
@@ -847,7 +1059,7 @@ export default function AppContentPage() {
                 </p>
               </div>
               <p className="text-[11px] text-white font-mono" style={{ color: "#ffffff" }}>
-                Limit: Up to 15MB for photos &middot; Up to 60MB for videos
+                Limit: Up to 15MB for photos &middot; Up to 200MB for videos
               </p>
               <input
                 ref={fileInputRef}
@@ -935,13 +1147,25 @@ export default function AppContentPage() {
                 </h3>
                 {renderStatusBadge(previewAsset)}
               </div>
-              <button
-                onClick={() => setPreviewAsset(null)}
-                className="text-zinc-400 hover:text-white"
-                aria-label="Close preview"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setAssetToDelete(previewAsset)}
+                  className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-zinc-800/80 rounded transition-colors cursor-pointer"
+                  title="Delete asset"
+                  aria-label="Delete asset"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewAsset(null)}
+                  className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800/80 rounded transition-colors cursor-pointer"
+                  aria-label="Close preview"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Modal Body: Split Media Viewer + AI Intelligence Panel */}
@@ -1005,6 +1229,44 @@ export default function AppContentPage() {
                       <span>Re-analyze</span>
                     </Button>
                   </div>
+
+                  {/* Status Notice Banner */}
+                  {(previewAsset.validationStatus === "rejected" || previewAsset.processingStatus === "rejected") && (
+                    <div className="p-3 border border-red-800 bg-red-950/70 text-red-100 text-xs font-sans leading-relaxed flex items-start gap-2.5">
+                      <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                      <div>
+                        <div className="font-semibold text-white mb-0.5">Content Unsuitable for Restaurant Marketing</div>
+                        <div>{previewAsset.rejectionReason || VALIDATION_MESSAGES.NON_FOOD_REJECTED}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {(previewAsset.validationStatus === "uncertain" || (previewAsset.processingStatus === "needs_review" && previewAsset.rejectionReason)) &&
+                    previewAsset.validationStatus !== "rejected" &&
+                    previewAsset.processingStatus !== "rejected" && (
+                    <div className="p-3 border border-amber-800 bg-amber-950/70 text-amber-100 text-xs font-sans leading-relaxed flex items-start gap-2.5">
+                      <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+                      <div>
+                        <div className="font-semibold text-white mb-0.5">Uncertain Content Classification</div>
+                        <div>{previewAsset.rejectionReason || VALIDATION_MESSAGES.UNCERTAIN}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {previewAsset.processingStatus === "failed" && (
+                    <div className="p-3 border border-red-800 bg-red-950/70 text-red-100 text-xs font-sans leading-relaxed flex items-start gap-2.5">
+                      <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                      <div>
+                        <div className="font-semibold text-white mb-0.5">Analysis Processing Failure</div>
+                        <div>
+                          {previewAsset.rejectionReason ||
+                            (previewAsset.mediaType === "video"
+                              ? VALIDATION_MESSAGES.AI_FAILURE_VIDEO
+                              : VALIDATION_MESSAGES.AI_FAILURE_IMAGE)}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Visual Scene Description */}
                   <div className="space-y-1.5">
@@ -1139,32 +1401,47 @@ export default function AppContentPage() {
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-between gap-3 pt-3 border-t border-zinc-800">
                     <Button
-                      variant="secondary"
-                      onClick={() => setPreviewAsset(null)}
-                      className="font-mono text-xs"
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAssetToDelete(previewAsset)}
+                      className="bg-red-950/80 hover:bg-red-900 border-red-800 text-white font-mono text-xs flex items-center gap-1.5"
+                      style={{ color: "#ffffff" }}
                     >
-                      Close
+                      <Trash2 className="w-3.5 h-3.5 text-red-300" />
+                      <span style={{ color: "#ffffff" }}>Delete Media</span>
                     </Button>
-                    <Button
-                      variant="default"
-                      disabled={isSavingEdit}
-                      onClick={handleSaveEdits}
-                      className="font-mono text-xs gap-1.5"
-                    >
-                      {isSavingEdit ? (
-                        <>
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          <span>Saving...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Save className="w-3.5 h-3.5" />
-                          <span>Save Changes</span>
-                        </>
-                      )}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setPreviewAsset(null)}
+                        className="font-mono text-xs"
+                      >
+                        Close
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="default"
+                        disabled={isSavingEdit}
+                        onClick={handleSaveEdits}
+                        className="font-mono text-xs gap-1.5"
+                      >
+                        {isSavingEdit ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Saving...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-3.5 h-3.5" />
+                            <span>Save Changes</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1179,25 +1456,32 @@ export default function AppContentPage() {
       {assetToDelete && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="border border-zinc-800 bg-zinc-950 w-full max-w-md p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 font-sans">
-            <h3 className="text-base font-bold text-white">Delete this content?</h3>
-            <p className="text-sm text-zinc-400 leading-relaxed">
-              This will permanently remove the file from your content library.
+            <div className="flex items-center gap-2.5 text-red-400">
+              <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
+              <h3 className="text-base font-bold text-white">Delete this content?</h3>
+            </div>
+            <p className="text-sm text-zinc-300 leading-relaxed">
+              This will permanently remove <span className="font-semibold text-white font-mono text-xs">{assetToDelete.fileName}</span> from your content library.
             </p>
-            <div className="pt-4 flex items-center justify-end gap-3 font-mono text-xs">
+            <div className="pt-3 flex items-center justify-end gap-3 font-mono text-xs">
               <Button
+                type="button"
                 variant="secondary"
                 disabled={isDeleting}
                 onClick={() => setAssetToDelete(null)}
+                className="text-zinc-300 hover:text-white"
               >
                 Cancel
               </Button>
               <Button
+                type="button"
                 variant="default"
                 disabled={isDeleting}
                 onClick={executeDelete}
-                className="bg-red-600 hover:bg-red-700 text-white font-mono text-xs"
+                className="bg-red-600 hover:bg-red-700 text-white font-mono text-xs font-semibold px-4 shadow-sm"
+                style={{ color: "#ffffff" }}
               >
-                {isDeleting ? "Deleting..." : "Delete"}
+                {isDeleting ? "Deleting..." : "Delete Permanently"}
               </Button>
             </div>
           </div>

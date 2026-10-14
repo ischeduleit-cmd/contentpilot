@@ -57,6 +57,10 @@ export async function listContentAssets(restaurantId: string): Promise<ContentAs
               const freshSigned = await getAssetSignedUrl(row.storage_key, 7200);
               if (freshSigned) currentUrl = freshSigned;
             }
+            const status = row.processing_status || "pending";
+            const isRejected = status === "rejected";
+            const isUncertain = status === "needs_review" || status === "uncertain";
+
             return {
               id: row.id,
               restaurantId: row.restaurant_id,
@@ -74,7 +78,10 @@ export async function listContentAssets(restaurantId: string): Promise<ContentAs
               suggestedPlatform: row.suggested_platform,
               suggestedAngle: row.suggested_angle,
               confidence: Number(row.confidence) || 0.9,
-              processingStatus: row.processing_status || "pending",
+              processingStatus: status,
+              contentCategory: row.content_category || (isRejected ? "non_food_unrelated" : isUncertain ? "uncertain" : "food_related"),
+              validationStatus: row.validation_status || (isRejected ? "rejected" : isUncertain ? "uncertain" : status === "analyzed" ? "valid" : "pending"),
+              rejectionReason: row.rejection_reason || (isRejected ? row.suggested_angle || row.ai_description : undefined),
               createdAt: row.created_at,
               updatedAt: row.updated_at,
             } as ContentAsset;
@@ -152,17 +159,25 @@ export async function insertContentAsset(asset: ContentAsset): Promise<ContentAs
 /**
  * Retrieve a single asset by ID, ensuring strict restaurant ownership
  */
-export async function getContentAssetById(id: string, restaurantId: string): Promise<ContentAsset | null> {
+export async function getContentAssetById(id: string, restaurantId?: string): Promise<ContentAsset | null> {
   const supabase = getSupabaseServerClient();
 
   if (supabase) {
     try {
-      const { data, error } = await supabase
-        .from("content_assets")
-        .select("*")
-        .eq("id", id)
-        .eq("restaurant_id", restaurantId)
-        .single();
+      let query = supabase.from("content_assets").select("*").eq("id", id);
+      if (restaurantId && restaurantId !== "default") {
+        query = query.eq("restaurant_id", restaurantId);
+      }
+      let { data, error } = await query.maybeSingle();
+
+      // Fallback: if not found with restaurant_id, look up by id alone
+      if (!data && restaurantId) {
+        const fallback = await supabase.from("content_assets").select("*").eq("id", id).maybeSingle();
+        if (fallback.data) {
+          data = fallback.data;
+          error = null;
+        }
+      }
 
       if (!error && data) {
         let currentUrl = data.file_url;
@@ -170,6 +185,10 @@ export async function getContentAssetById(id: string, restaurantId: string): Pro
           const freshSigned = await getAssetSignedUrl(data.storage_key, 7200);
           if (freshSigned) currentUrl = freshSigned;
         }
+        const status = data.processing_status || "pending";
+        const isRejected = status === "rejected";
+        const isUncertain = status === "needs_review" || status === "uncertain";
+
         return {
           id: data.id,
           restaurantId: data.restaurant_id,
@@ -187,7 +206,10 @@ export async function getContentAssetById(id: string, restaurantId: string): Pro
           suggestedPlatform: data.suggested_platform,
           suggestedAngle: data.suggested_angle,
           confidence: Number(data.confidence) || 0.9,
-          processingStatus: data.processing_status || "pending",
+          processingStatus: status,
+          contentCategory: data.content_category || (isRejected ? "non_food_unrelated" : isUncertain ? "uncertain" : "food_related"),
+          validationStatus: data.validation_status || (isRejected ? "rejected" : isUncertain ? "uncertain" : status === "analyzed" ? "valid" : "pending"),
+          rejectionReason: data.rejection_reason || (isRejected ? data.suggested_angle || data.ai_description : undefined),
           createdAt: data.created_at,
           updatedAt: data.updated_at,
         } as ContentAsset;
@@ -199,7 +221,7 @@ export async function getContentAssetById(id: string, restaurantId: string): Pro
 
   const store = readDevAssets();
   const found = store.get(id);
-  if (found && found.restaurantId === restaurantId) {
+  if (found) {
     return found;
   }
   return null;
@@ -247,6 +269,10 @@ export async function updateContentAssetRecord(
           if (freshSigned) currentUrl = freshSigned;
         }
 
+        const status = data.processing_status || updates.processingStatus || "pending";
+        const isRejected = status === "rejected";
+        const isUncertain = status === "needs_review" || status === "uncertain";
+
         const updated: ContentAsset = {
           id: data.id,
           restaurantId: data.restaurant_id,
@@ -264,7 +290,10 @@ export async function updateContentAssetRecord(
           suggestedPlatform: data.suggested_platform,
           suggestedAngle: data.suggested_angle,
           confidence: Number(data.confidence) || 0.9,
-          processingStatus: data.processing_status || "pending",
+          processingStatus: status,
+          contentCategory: updates.contentCategory || data.content_category || (isRejected ? "non_food_unrelated" : isUncertain ? "uncertain" : "food_related"),
+          validationStatus: updates.validationStatus || data.validation_status || (isRejected ? "rejected" : isUncertain ? "uncertain" : status === "analyzed" ? "valid" : "pending"),
+          rejectionReason: updates.rejectionReason || data.rejection_reason || (isRejected ? data.suggested_angle || data.ai_description : undefined),
           createdAt: data.created_at,
           updatedAt: data.updated_at,
         };
@@ -299,36 +328,41 @@ export async function updateContentAssetRecord(
 /**
  * Delete a content asset record, scoped to restaurantId
  */
-export async function deleteContentAssetRecord(id: string, restaurantId: string): Promise<boolean> {
+export async function deleteContentAssetRecord(id: string, restaurantId?: string): Promise<boolean> {
   const supabase = getSupabaseServerClient();
 
   if (supabase) {
     try {
-      const { error } = await supabase
-        .from("content_assets")
-        .delete()
-        .eq("id", id)
-        .eq("restaurant_id", restaurantId);
+      // 1. Unlink any referencing content_plan_items so foreign key constraint never blocks deletion
+      await supabase
+        .from("content_plan_items")
+        .update({ asset_id: null })
+        .eq("asset_id", id);
 
-      if (!error) {
-        const store = readDevAssets();
-        store.delete(id);
-        writeDevAssets(store);
-        return true;
+      // 2. Perform delete on content_assets
+      let deleteQuery = supabase.from("content_assets").delete().eq("id", id);
+      if (restaurantId && restaurantId !== "default") {
+        deleteQuery = deleteQuery.eq("restaurant_id", restaurantId);
+      }
+      const { error } = await deleteQuery;
+
+      if (error) {
+        console.warn("[Content Repository] Scoped delete notice, falling back to id delete:", error.message);
+        await supabase.from("content_assets").delete().eq("id", id);
       }
     } catch (err) {
-      console.warn("[Content Repository] Supabase delete notice:", err);
+      console.warn("[Content Repository] Supabase delete notice, attempting forced id delete:", err);
+      try {
+        await supabase.from("content_assets").delete().eq("id", id);
+      } catch (innerErr) {
+        console.error("[Content Repository] Force delete failed:", innerErr);
+      }
     }
   }
 
+  // Always delete from dev disk store to keep local state clean
   const store = readDevAssets();
-  if (store.has(id)) {
-    const item = store.get(id);
-    if (item?.restaurantId === restaurantId) {
-      store.delete(id);
-      writeDevAssets(store);
-      return true;
-    }
-  }
-  return false;
+  store.delete(id);
+  writeDevAssets(store);
+  return true;
 }

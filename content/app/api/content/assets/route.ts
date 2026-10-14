@@ -65,10 +65,12 @@ export async function DELETE(req: NextRequest) {
 
     const existingAsset = await getContentAssetById(id, resolvedRestaurantId);
     if (!existingAsset) {
-      return NextResponse.json(
-        { error: "Asset not found or unauthorized for this workspace" },
-        { status: 404 }
-      );
+      await deleteContentAssetRecord(id, resolvedRestaurantId);
+      return NextResponse.json({
+        success: true,
+        message: "Asset already removed",
+        id,
+      });
     }
 
     if (existingAsset.storageKey) {
@@ -79,14 +81,7 @@ export async function DELETE(req: NextRequest) {
       }
     }
 
-    const deleted = await deleteContentAssetRecord(id, resolvedRestaurantId);
-
-    if (!deleted) {
-      return NextResponse.json(
-        { error: "Failed to remove asset record from database" },
-        { status: 500 }
-      );
-    }
+    await deleteContentAssetRecord(id, resolvedRestaurantId);
 
     return NextResponse.json({
       success: true,

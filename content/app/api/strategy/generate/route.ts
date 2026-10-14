@@ -45,8 +45,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Fetch existing media assets from repository
-    let assets = await listContentAssets(restaurantId);
+    // Fetch existing media assets from repository (exclude rejected/invalid media)
+    const rawAssets = await listContentAssets(restaurantId);
+    const assets = rawAssets.filter(
+      (a) =>
+        a.validationStatus !== "rejected" &&
+        a.processingStatus !== "rejected" &&
+        a.processingStatus !== "failed" &&
+        a.processingStatus !== "error" &&
+        a.validationStatus !== "unsupported" &&
+        a.validationStatus !== "error"
+    );
 
     const realRest = access.restaurant;
 

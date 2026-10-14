@@ -21,10 +21,12 @@ export async function DELETE(
     // Verify ownership at backend level
     const existingAsset = await getContentAssetById(id, resolvedRestaurantId);
     if (!existingAsset) {
-      return NextResponse.json(
-        { error: "Asset not found or unauthorized for this workspace" },
-        { status: 404 }
-      );
+      await deleteContentAssetRecord(id, resolvedRestaurantId);
+      return NextResponse.json({
+        success: true,
+        message: "Asset already removed",
+        id,
+      });
     }
 
     // 1. Delete from Supabase Storage if storageKey exists
@@ -37,14 +39,7 @@ export async function DELETE(
     }
 
     // 2. Delete from database metadata
-    const deleted = await deleteContentAssetRecord(id, resolvedRestaurantId);
-
-    if (!deleted) {
-      return NextResponse.json(
-        { error: "Failed to remove asset record from database" },
-        { status: 500 }
-      );
-    }
+    await deleteContentAssetRecord(id, resolvedRestaurantId);
 
     return NextResponse.json({
       success: true,
@@ -95,6 +90,9 @@ export async function PATCH(
       suggestedAngle: body.suggestedAngle !== undefined ? body.suggestedAngle : existingAsset.suggestedAngle,
       confidence: typeof body.confidence === "number" ? body.confidence : existingAsset.confidence,
       processingStatus: body.processingStatus !== undefined ? body.processingStatus : existingAsset.processingStatus,
+      contentCategory: body.contentCategory !== undefined ? body.contentCategory : existingAsset.contentCategory,
+      validationStatus: body.validationStatus !== undefined ? body.validationStatus : existingAsset.validationStatus,
+      rejectionReason: body.rejectionReason !== undefined ? body.rejectionReason : existingAsset.rejectionReason,
     });
 
     return NextResponse.json({

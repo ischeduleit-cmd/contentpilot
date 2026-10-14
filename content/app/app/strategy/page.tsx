@@ -146,7 +146,10 @@ export default function AppStrategyPage() {
 
         const assetsData = await assetsRes.json();
         if (assetsData.success && assetsData.assets) {
-          setLibraryAssets(assetsData.assets);
+          const validAssets = (assetsData.assets as ContentAsset[]).filter(
+            (a) => a.validationStatus !== "rejected" && a.processingStatus !== "rejected"
+          );
+          setLibraryAssets(validAssets);
         }
       } catch (err) {
         console.error("Failed to fetch strategy or assets:", err);
@@ -387,6 +390,7 @@ export default function AppStrategyPage() {
   };
 
   const filteredAssets = libraryAssets.filter((a) => {
+    if (a.validationStatus === "rejected" || a.processingStatus === "rejected") return false;
     if (assetFilter === "photo") return a.mediaType === "image" || a.mimeType?.startsWith("image/");
     if (assetFilter === "video") return a.mediaType === "video" || a.mimeType?.startsWith("video/");
     return true;
@@ -1272,9 +1276,10 @@ export default function AppStrategyPage() {
                           />
                           <Badge
                             variant="outline"
-                            className="absolute top-1.5 right-1.5 text-[8px] bg-black/80 font-mono uppercase text-white border-zinc-700"
+                            className="absolute top-1.5 right-1.5 text-[9px] bg-black/95 font-mono uppercase font-semibold text-white border-zinc-700 shadow-sm"
+                            style={{ color: "#ffffff" }}
                           >
-                            {asset.mediaType}
+                            <span style={{ color: "#ffffff" }}>{asset.mediaType}</span>
                           </Badge>
                         </div>
 

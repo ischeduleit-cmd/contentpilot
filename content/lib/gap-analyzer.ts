@@ -299,11 +299,21 @@ export function analyzeContentGaps(
   const restaurantLocation = restaurantContext?.location || BENCHMARK_RESTAURANT.location;
   const benchmark = GOAL_BENCHMARKS[goalType] || GOAL_BENCHMARKS.increase_lunch_orders;
 
-  const totalCount = assets.length;
-  const photosCount = assets.filter(
+  const validAssets = assets.filter(
+    (a) =>
+      a.validationStatus !== "rejected" &&
+      a.processingStatus !== "rejected" &&
+      a.processingStatus !== "failed" &&
+      a.processingStatus !== "error" &&
+      a.validationStatus !== "unsupported" &&
+      a.validationStatus !== "error"
+  );
+
+  const totalCount = validAssets.length;
+  const photosCount = validAssets.filter(
     (a) => a.mediaType === "image" || a.mimeType?.startsWith("image/")
   ).length;
-  const videosCount = assets.filter(
+  const videosCount = validAssets.filter(
     (a) => a.mediaType === "video" || a.mimeType?.startsWith("video/")
   ).length;
 
@@ -317,7 +327,7 @@ export function analyzeContentGaps(
     promotion: 0,
   };
 
-  assets.forEach((asset) => {
+  validAssets.forEach((asset) => {
     const p = (asset.contentPillar as ContentPillar) || "product";
     if (pillarCounts[p] !== undefined) {
       pillarCounts[p]++;

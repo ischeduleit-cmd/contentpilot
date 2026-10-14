@@ -182,7 +182,17 @@ export async function generateWeeklyContentStrategy(
   const action = input.primaryCustomerAction || "whatsapp_order";
   const goal: BusinessGoalType = input.goal || "increase_lunch_orders";
   const weekStart = input.weekStart || getUpcomingMonday();
-  const availableAssets = input.availableAssets || [];
+  const rawAssets = input.availableAssets || [];
+  // Exclude rejected, failed, uncertain, or unsupported media
+  const availableAssets = rawAssets.filter(
+    (a) =>
+      a.validationStatus !== "rejected" &&
+      a.processingStatus !== "rejected" &&
+      a.processingStatus !== "failed" &&
+      a.processingStatus !== "error" &&
+      a.validationStatus !== "unsupported" &&
+      a.validationStatus !== "error"
+  );
 
   // Run Gap Analysis to identify deficits and shooting recommendations
   const gapAnalysis: GapAnalysisResult = analyzeContentGaps(
