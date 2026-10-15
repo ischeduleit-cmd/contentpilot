@@ -645,8 +645,12 @@ async function analyzeVisualMedia(
       const warmRatio = culinaryWarmPixels / totalPixels;
       const greenRatio = vegetableGreenPixels / totalPixels;
 
-      const isSelfieOrPortrait = centerSkinRatio >= 0.18 && upperSkinRatio >= 0.15;
       const hasCulinaryColors = warmRatio >= 0.08 || greenRatio >= 0.04;
+      const isSelfieOrPortrait =
+        (centerSkinRatio >= 0.18 && upperSkinRatio >= 0.10) ||
+        (centerSkinRatio >= 0.25) ||
+        (centerSkinRatio >= 0.15 && upperSkinRatio >= 0.14) ||
+        (centerSkinRatio >= 0.15 && !hasCulinaryColors && upperSkinRatio >= 0.08);
 
       return {
         isSelfieOrPortrait,
