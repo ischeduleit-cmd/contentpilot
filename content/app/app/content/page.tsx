@@ -133,15 +133,6 @@ export default function AppContentPage() {
   const [assetToDelete, setAssetToDelete] = React.useState<ContentAsset | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
 
-  const isPreviewRejected = Boolean(
-    previewAsset &&
-      (previewAsset.validationStatus === "rejected" || previewAsset.processingStatus === "rejected")
-  );
-  const isPreviewNeedsReview = Boolean(
-    previewAsset &&
-      (previewAsset.validationStatus === "uncertain" || previewAsset.processingStatus === "needs_review")
-  );
-  const isPreviewAlert = isPreviewRejected || isPreviewNeedsReview;
 
   // Editable Form for Preview Asset (Human-in-the-Loop)
   const [editForm, setEditForm] = React.useState({
@@ -876,17 +867,11 @@ export default function AppContentPage() {
               const isVideo =
                 asset.mediaType === "video" || asset.mimeType?.startsWith("video/");
               const isAnalyzing = analyzingAssetId === asset.id;
-              const isRejected = asset.validationStatus === "rejected" || asset.processingStatus === "rejected";
-              const isNeedsReview = asset.validationStatus === "uncertain" || asset.processingStatus === "needs_review";
 
               return (
                 <div
                   key={asset.id}
-                  className={`group border flex flex-col justify-between transition-colors ${
-                    isRejected || isNeedsReview
-                      ? "border-2 border-[#b9513a] bg-[#140b09] shadow-[0_0_24px_rgba(185,81,58,0.22)]"
-                      : "border-zinc-800 bg-zinc-950 hover:border-zinc-600"
-                  }`}
+                  className="group border border-zinc-800 bg-zinc-950 flex flex-col justify-between hover:border-zinc-600 transition-colors"
                 >
                   {/* Thumbnail / Media Container */}
                   <button
@@ -952,19 +937,11 @@ export default function AppContentPage() {
                       <div className="flex items-start justify-between gap-2">
                         <button
                           type="button"
-                          className={`max-w-full truncate text-left font-mono text-xs cursor-pointer transition-colors ${
-                            isRejected || isNeedsReview
-                              ? "border border-[#b9513a]/60 bg-[#1c0f0d] px-2.5 py-1 rounded-xs font-bold text-white hover:border-[#b9513a] hover:bg-[#251310] shadow-xs"
-                              : "border-0 bg-transparent p-0 font-sans font-medium text-white hover:underline"
-                          }`}
-                          style={{
-                            color: "#ffffff",
-                            backgroundColor: isRejected || isNeedsReview ? "#1c0f0d" : "transparent",
-                          }}
+                          className="max-w-full truncate border-0 bg-transparent p-0 text-left font-sans font-medium text-white text-xs cursor-pointer hover:underline"
                           title={asset.fileName}
                           onClick={() => setPreviewAsset(asset)}
                         >
-                          <span style={{ color: "#ffffff" }}>{asset.fileName}</span>
+                          {asset.fileName}
                         </button>
                         <button
                           type="button"
@@ -973,7 +950,7 @@ export default function AppContentPage() {
                             e.preventDefault();
                             setAssetToDelete(asset);
                           }}
-                          className="text-zinc-400 hover:text-[#b9513a] hover:bg-zinc-800/80 transition-colors p-1.5 rounded cursor-pointer shrink-0 z-10"
+                          className="text-zinc-400 hover:text-red-400 hover:bg-zinc-800/80 transition-colors p-1.5 rounded cursor-pointer shrink-0 z-10"
                           title="Delete asset"
                           aria-label="Delete asset"
                         >
@@ -983,91 +960,16 @@ export default function AppContentPage() {
 
                       {/* AI Description Snippet / Rejection Notice */}
                       {asset.validationStatus === "rejected" || asset.processingStatus === "rejected" ? (
-                        <div className="p-2.5 rounded-md border border-[#b9513a] bg-[#1a0f0d] shadow-sm space-y-1.5">
-                          <div className="flex items-center gap-1.5 text-white">
-                            <AlertCircle className="w-3.5 h-3.5 text-[#b9513a] shrink-0" />
-                            <span className="font-sans font-bold text-[11px] text-white leading-tight" style={{ color: "#ffffff" }}>
-                              Content Unsuitable for Restaurant Marketing
-                            </span>
-                          </div>
-                          <p className="text-[11px] font-sans leading-relaxed" style={{ color: "#f7f4ec" }}>
-                            {asset.rejectionReason || VALIDATION_MESSAGES.NON_FOOD_REJECTED}
-                          </p>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              setAssetToDelete(asset);
-                            }}
-                            className="mt-1 w-full py-1.5 px-2 bg-[#b9513a] hover:bg-[#963d2b] active:scale-[0.98] text-white font-mono text-[10px] font-bold rounded-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
-                            style={{ color: "#ffffff", backgroundColor: "#b9513a" }}
-                          >
-                            <Trash2 className="w-3 h-3 text-white" />
-                            <span style={{ color: "#ffffff" }}>DELETE IMAGE PERMANENTLY</span>
-                          </button>
+                        <div className="p-2 border border-[#963d2b] bg-[#b9513a] text-white text-[11px] font-sans leading-relaxed rounded-xs">
+                          <p className="text-white font-medium">{asset.rejectionReason || VALIDATION_MESSAGES.NON_FOOD_REJECTED}</p>
                         </div>
                       ) : asset.validationStatus === "uncertain" || (asset.processingStatus === "needs_review" && asset.rejectionReason) ? (
-                        <div
-                          className="p-2.5 border border-[#b9513a] rounded-xs space-y-1.5 shadow-sm"
-                          style={{ backgroundColor: "#1a0f0d" }}
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <AlertTriangle className="w-3.5 h-3.5 text-[#b9513a] shrink-0" />
-                            <span
-                              className="font-bold text-[11px] font-sans tracking-tight"
-                              style={{ color: "#ffffff" }}
-                            >
-                              Uncertain Content Classification
-                            </span>
-                          </div>
-                          <p className="text-[11px] font-sans leading-relaxed" style={{ color: "#f7f4ec" }}>
-                            {asset.rejectionReason || VALIDATION_MESSAGES.UNCERTAIN}
-                          </p>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              setAssetToDelete(asset);
-                            }}
-                            className="mt-1 w-full py-1.5 px-2 bg-[#b9513a] hover:bg-[#963d2b] active:scale-[0.98] text-white font-mono text-[10px] font-bold rounded-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
-                            style={{ color: "#ffffff", backgroundColor: "#b9513a" }}
-                          >
-                            <Trash2 className="w-3 h-3 text-white" />
-                            <span style={{ color: "#ffffff" }}>DELETE IMAGE PERMANENTLY</span>
-                          </button>
+                        <div className="p-2 border border-[#963d2b] bg-[#b9513a] text-white text-[11px] font-sans leading-relaxed rounded-xs">
+                          <p className="text-white font-medium">{asset.rejectionReason || VALIDATION_MESSAGES.UNCERTAIN}</p>
                         </div>
                       ) : asset.processingStatus === "failed" && asset.rejectionReason ? (
-                        <div
-                          className="p-2.5 border border-[#b9513a] rounded-xs space-y-1.5 shadow-sm"
-                          style={{ backgroundColor: "#1a0f0d" }}
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <AlertCircle className="w-3.5 h-3.5 text-[#b9513a] shrink-0" />
-                            <span
-                              className="font-bold text-[11px] font-sans tracking-tight"
-                              style={{ color: "#ffffff" }}
-                            >
-                              Analysis Processing Failure
-                            </span>
-                          </div>
-                          <p className="text-[11px] font-sans leading-relaxed" style={{ color: "#f7f4ec" }}>
-                            {asset.rejectionReason}
-                          </p>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              setAssetToDelete(asset);
-                            }}
-                            className="mt-1 w-full py-1.5 px-2 bg-[#b9513a] hover:bg-[#963d2b] active:scale-[0.98] text-white font-mono text-[10px] font-bold rounded-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
-                            style={{ color: "#ffffff", backgroundColor: "#b9513a" }}
-                          >
-                            <Trash2 className="w-3 h-3 text-white" />
-                            <span style={{ color: "#ffffff" }}>DELETE IMAGE PERMANENTLY</span>
-                          </button>
+                        <div className="p-2 border border-[#963d2b] bg-[#b9513a] text-white text-[11px] font-sans leading-relaxed rounded-xs">
+                          <p className="text-white font-medium">{asset.rejectionReason}</p>
                         </div>
                       ) : asset.aiDescription ? (
                         <p className="text-[11px] font-sans text-zinc-400 line-clamp-2 leading-relaxed">
@@ -1261,55 +1163,20 @@ export default function AppContentPage() {
       {/* ---------------------------------------------------- */}
       {previewAsset && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-          <div
-            className={`w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col my-auto max-h-[92vh] border transition-all ${
-              isPreviewAlert
-                ? "border-2 border-[#b9513a] bg-[#140b09] shadow-[0_0_32px_rgba(185,81,58,0.25)] rounded-lg"
-                : "border border-zinc-800 bg-zinc-950"
-            }`}
-          >
+          <div className="border border-zinc-800 bg-zinc-950 w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col my-auto max-h-[92vh]">
             {/* Modal Header */}
-            <div
-              className={`flex items-center justify-between p-4 border-b ${
-                isPreviewAlert
-                  ? "border-[#b9513a] bg-[#1a0f0d]"
-                  : "border-zinc-800 bg-zinc-900/50"
-              }`}
-            >
+            <div className="flex items-center justify-between p-4 border-b border-zinc-800 bg-zinc-900/50">
               <div className="flex items-center gap-3 truncate pr-4">
-                <div className="flex items-center gap-2.5 truncate">
-                  {isPreviewRejected ? (
-                    <span
-                      className="inline-flex items-center gap-1.5 font-mono text-[10px] sm:text-[11px] font-bold px-2.5 py-1 bg-[#b9513a] text-white rounded-xs shadow-[0_2px_8px_rgba(185,81,58,0.4)] shrink-0"
-                      style={{ backgroundColor: "#b9513a", color: "#ffffff" }}
-                    >
-                      <AlertCircle className="w-3.5 h-3.5 text-white shrink-0" />
-                      <span style={{ color: "#ffffff" }}>Rejected</span>
-                    </span>
-                  ) : (
-                    renderStatusBadge(previewAsset)
-                  )}
-                  <h3
-                    className={`text-sm font-bold font-mono truncate px-3 py-1 rounded-xs ${
-                      isPreviewAlert
-                        ? "border border-[#b9513a]/60 bg-[#1c0f0d] text-white shadow-xs"
-                        : "text-white font-sans"
-                    }`}
-                    style={{
-                      color: "#ffffff",
-                      backgroundColor: isPreviewAlert ? "#1c0f0d" : undefined,
-                    }}
-                    title={previewAsset.fileName}
-                  >
-                    {previewAsset.fileName}
-                  </h3>
-                </div>
+                <h3 className="text-sm font-bold text-white truncate font-sans">
+                  {previewAsset.fileName}
+                </h3>
+                {renderStatusBadge(previewAsset)}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setAssetToDelete(previewAsset)}
-                  className="p-1.5 text-zinc-400 hover:text-[#b9513a] hover:bg-zinc-800/80 rounded transition-colors cursor-pointer"
+                  className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-zinc-800/80 rounded transition-colors cursor-pointer"
                   title="Delete asset"
                   aria-label="Delete asset"
                 >
@@ -1367,11 +1234,7 @@ export default function AppContentPage() {
               </div>
 
               {/* AI Strategic Intelligence Column (Human-in-the-Loop) */}
-              <div
-                className={`lg:col-span-7 p-5 space-y-4 flex flex-col justify-between transition-colors ${
-                  isPreviewAlert ? "bg-[#140b09]" : "bg-zinc-950"
-                }`}
-              >
+              <div className="lg:col-span-7 p-5 space-y-4 bg-zinc-950 flex flex-col justify-between">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between border-b border-zinc-800 pb-2.5">
                     <div className="flex items-center gap-2">
@@ -1392,41 +1255,13 @@ export default function AppContentPage() {
                     </Button>
                   </div>
 
-                  {/* Status Notice Banner - Brand Redesigned with High Contrast */}
+                  {/* Status Notice Banner */}
                   {(previewAsset.validationStatus === "rejected" || previewAsset.processingStatus === "rejected") && (
-                    <div className="p-4 rounded-lg border-2 border-[#b9513a] bg-[#1a0f0d] shadow-[0_0_24px_rgba(185,81,58,0.22)] space-y-3.5">
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-md bg-[#b9513a] flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-                          <AlertCircle className="w-5 h-5 text-white" />
-                        </div>
-                        <div className="space-y-1.5 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-white text-sm tracking-tight font-sans" style={{ color: "#ffffff" }}>
-                              Content Unsuitable for Restaurant Marketing
-                            </span>
-                            <span className="font-mono text-[10px] font-bold uppercase px-2 py-0.5 bg-[#b9513a] text-white rounded-xs">
-                              Rejected
-                            </span>
-                          </div>
-                          <p className="text-sm font-sans leading-relaxed font-normal" style={{ color: "#f7f4ec" }}>
-                            {previewAsset.rejectionReason || VALIDATION_MESSAGES.NON_FOOD_REJECTED}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="pt-3 border-t border-[#b9513a]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <p className="text-[11px] font-mono text-zinc-300">
-                          Excluded from weekly strategy generation.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setAssetToDelete(previewAsset)}
-                          className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#b9513a] hover:bg-[#963d2b] active:scale-[0.98] text-white font-mono text-xs font-bold rounded-md shadow-[0_2px_12px_rgba(185,81,58,0.35)] transition-all cursor-pointer"
-                          style={{ color: "#ffffff", backgroundColor: "#b9513a" }}
-                        >
-                          <Trash2 className="w-4 h-4 text-white" />
-                          <span style={{ color: "#ffffff" }}>DELETE IMAGE PERMANENTLY</span>
-                        </button>
+                    <div className="p-3 border border-[#963d2b] bg-[#b9513a] text-white text-xs font-sans leading-relaxed flex items-start gap-2.5 rounded-xs">
+                      <AlertCircle className="w-4 h-4 text-white mt-0.5 shrink-0" />
+                      <div>
+                        <div className="font-semibold text-white mb-0.5">Content Unsuitable for Restaurant Marketing</div>
+                        <div className="text-white">{previewAsset.rejectionReason || VALIDATION_MESSAGES.NON_FOOD_REJECTED}</div>
                       </div>
                     </div>
                   )}
@@ -1434,80 +1269,26 @@ export default function AppContentPage() {
                   {(previewAsset.validationStatus === "uncertain" || (previewAsset.processingStatus === "needs_review" && previewAsset.rejectionReason)) &&
                     previewAsset.validationStatus !== "rejected" &&
                     previewAsset.processingStatus !== "rejected" && (
-                    <div className="p-4 rounded-lg border-2 border-[#b9513a] bg-[#1a0f0d] shadow-[0_0_24px_rgba(185,81,58,0.22)] space-y-3.5">
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-md bg-[#b9513a] flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-                          <AlertTriangle className="w-5 h-5 text-white" />
-                        </div>
-                        <div className="space-y-1.5 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-white text-sm tracking-tight font-sans" style={{ color: "#ffffff" }}>
-                              Uncertain Content Classification
-                            </span>
-                            <span className="font-mono text-[10px] font-bold uppercase px-2 py-0.5 bg-[#b9513a] text-white rounded-xs">
-                              Needs Review
-                            </span>
-                          </div>
-                          <p className="text-sm font-sans leading-relaxed font-normal" style={{ color: "#f7f4ec" }}>
-                            {previewAsset.rejectionReason || VALIDATION_MESSAGES.UNCERTAIN}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="pt-3 border-t border-[#b9513a]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <p className="text-[11px] font-mono text-zinc-300">
-                          Requires verification or a clearer file upload.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setAssetToDelete(previewAsset)}
-                          className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#b9513a] hover:bg-[#963d2b] active:scale-[0.98] text-white font-mono text-xs font-bold rounded-md shadow-[0_2px_12px_rgba(185,81,58,0.35)] transition-all cursor-pointer"
-                          style={{ color: "#ffffff", backgroundColor: "#b9513a" }}
-                        >
-                          <Trash2 className="w-4 h-4 text-white" />
-                          <span style={{ color: "#ffffff" }}>DELETE IMAGE PERMANENTLY</span>
-                        </button>
+                    <div className="p-3 border border-[#963d2b] bg-[#b9513a] text-white text-xs font-sans leading-relaxed flex items-start gap-2.5 rounded-xs">
+                      <AlertTriangle className="w-4 h-4 text-white mt-0.5 shrink-0" />
+                      <div>
+                        <div className="font-semibold text-white mb-0.5">Uncertain Content Classification</div>
+                        <div className="text-white">{previewAsset.rejectionReason || VALIDATION_MESSAGES.UNCERTAIN}</div>
                       </div>
                     </div>
                   )}
 
                   {previewAsset.processingStatus === "failed" && (
-                    <div className="p-4 rounded-lg border-2 border-[#b9513a] bg-[#1a0f0d] shadow-[0_0_24px_rgba(185,81,58,0.22)] space-y-3.5">
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-md bg-[#b9513a] flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-                          <AlertCircle className="w-5 h-5 text-white" />
+                    <div className="p-3 border border-[#963d2b] bg-[#b9513a] text-white text-xs font-sans leading-relaxed flex items-start gap-2.5 rounded-xs">
+                      <AlertCircle className="w-4 h-4 text-white mt-0.5 shrink-0" />
+                      <div>
+                        <div className="font-semibold text-white mb-0.5">Analysis Processing Failure</div>
+                        <div className="text-white">
+                          {previewAsset.rejectionReason ||
+                            (previewAsset.mediaType === "video"
+                              ? VALIDATION_MESSAGES.AI_FAILURE_VIDEO
+                              : VALIDATION_MESSAGES.AI_FAILURE_IMAGE)}
                         </div>
-                        <div className="space-y-1.5 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-white text-sm tracking-tight font-sans" style={{ color: "#ffffff" }}>
-                              Analysis Processing Failure
-                            </span>
-                            <span className="font-mono text-[10px] font-bold uppercase px-2 py-0.5 bg-[#b9513a] text-white rounded-xs">
-                              Failed
-                            </span>
-                          </div>
-                          <p className="text-sm font-sans leading-relaxed font-normal" style={{ color: "#f7f4ec" }}>
-                            {previewAsset.rejectionReason ||
-                              (previewAsset.mediaType === "video"
-                                ? VALIDATION_MESSAGES.AI_FAILURE_VIDEO
-                                : VALIDATION_MESSAGES.AI_FAILURE_IMAGE)}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="pt-3 border-t border-[#b9513a]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <p className="text-[11px] font-mono text-zinc-300">
-                          Automated classification failed. Try re-analyzing or upload another file.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setAssetToDelete(previewAsset)}
-                          className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#b9513a] hover:bg-[#963d2b] active:scale-[0.98] text-white font-mono text-xs font-bold rounded-md shadow-[0_2px_12px_rgba(185,81,58,0.35)] transition-all cursor-pointer"
-                          style={{ color: "#ffffff", backgroundColor: "#b9513a" }}
-                        >
-                          <Trash2 className="w-4 h-4 text-white" />
-                          <span style={{ color: "#ffffff" }}>DELETE IMAGE PERMANENTLY</span>
-                        </button>
                       </div>
                     </div>
                   )}
@@ -1698,43 +1479,35 @@ export default function AppContentPage() {
       {/* DELETE CONFIRMATION MODAL */}
       {/* ---------------------------------------------------- */}
       {assetToDelete && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="border-2 border-[#b9513a] bg-[#1a0f0d] w-full max-w-md p-6 space-y-4 shadow-[0_0_32px_rgba(185,81,58,0.28)] rounded-lg animate-in fade-in zoom-in-95 font-sans">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-md bg-[#b9513a] flex items-center justify-center shrink-0 shadow-sm">
-                <Trash2 className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-white tracking-tight" style={{ color: "#ffffff" }}>
-                  Delete Image Permanently?
-                </h3>
-                <p className="text-[11px] font-mono text-[#f7f4ec]/70">This action cannot be undone.</p>
-              </div>
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="border border-zinc-800 bg-zinc-950 w-full max-w-md p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 font-sans">
+            <div className="flex items-center gap-2.5 text-[#b9513a]">
+              <AlertTriangle className="w-5 h-5 text-[#b9513a] shrink-0" />
+              <h3 className="text-base font-bold text-white">Delete this content?</h3>
             </div>
-            <p className="text-sm leading-relaxed" style={{ color: "#f7f4ec" }}>
-              This will permanently remove <span className="font-semibold text-white font-mono text-xs px-1.5 py-0.5 bg-black/60 border border-[#b9513a]/40 rounded">{assetToDelete.fileName}</span> from your restaurant content library.
+            <p className="text-sm text-zinc-300 leading-relaxed">
+              This will permanently remove <span className="font-semibold text-white font-mono text-xs">{assetToDelete.fileName}</span> from your content library.
             </p>
-            <div className="pt-3 border-t border-[#b9513a]/25 flex items-center justify-end gap-3 font-mono text-xs">
-              <button
+            <div className="pt-3 flex items-center justify-end gap-3 font-mono text-xs">
+              <Button
                 type="button"
+                variant="secondary"
                 disabled={isDeleting}
                 onClick={() => setAssetToDelete(null)}
-                className="px-3.5 py-2 rounded-md bg-black/60 hover:bg-black/90 text-zinc-300 hover:text-white border border-zinc-700 font-mono text-xs transition-colors cursor-pointer"
+                className="text-zinc-300 hover:text-white"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="default"
                 disabled={isDeleting}
                 onClick={executeDelete}
-                className="bg-[#b9513a] hover:bg-[#963d2b] active:scale-[0.98] text-white font-mono text-xs font-bold px-4 py-2 rounded-md shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                className="bg-[#b9513a] hover:bg-[#963d2b] text-white font-mono text-xs font-semibold px-4 shadow-sm"
                 style={{ color: "#ffffff", backgroundColor: "#b9513a" }}
               >
-                <Trash2 className="w-4 h-4 text-white" />
-                <span style={{ color: "#ffffff" }}>
-                  {isDeleting ? "Deleting..." : "DELETE IMAGE PERMANENTLY"}
-                </span>
-              </button>
+                {isDeleting ? "Deleting..." : "DELETE IMAGE PERMANENTLY"}
+              </Button>
             </div>
           </div>
         </div>
