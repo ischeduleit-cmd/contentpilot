@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const access = await verifyRestaurantOwner(req, customRestaurantId);
     if (!access.user || !access.restaurant) return NextResponse.json({ error: "Workspace access denied." }, { status: access.status });
     const resolvedRestaurantId = access.restaurant.id;
-    const { assetId, assetIds, allPending, restaurantContext, frames } = body;
+    const { assetId, assetIds, allPending, restaurantContext, frames, assetFrames } = body;
 
     const context: Partial<RestaurantAnalysisContext> = {
       id: resolvedRestaurantId,
@@ -83,9 +83,13 @@ export async function POST(req: NextRequest) {
           processingStatus: "analyzing",
         });
 
+        const targetFrames =
+          (assetFrames && Array.isArray(assetFrames[asset.id]) ? assetFrames[asset.id] : undefined) ||
+          (assetId && Array.isArray(frames) ? frames : undefined);
+
         const analysis = await analyzeContentAsset(asset, {
           context,
-          frames: assetId && Array.isArray(frames) ? frames : undefined,
+          frames: targetFrames,
         });
 
         const updated = await updateContentAssetRecord(asset.id, resolvedRestaurantId, {

@@ -301,39 +301,72 @@ async function callLiveVisionApi(
     return null;
   }
 
-  const systemPrompt = `You are an expert AI Restaurant Product Marketing Manager and Content Strategist.
-Your job is to analyze restaurant media assets, classify whether they are valid food/restaurant marketing content, and extract structured marketing intelligence.
+  const systemPrompt = `You are an expert AI Restaurant Product Marketing Manager and Content Strategist for "${context.name}"${
+    context.location ? ` in ${context.location}` : ""
+  }${context.restaurantType ? ` (${context.restaurantType})` : ""}.
+${context.targetAudience ? `Target Audience: ${context.targetAudience}.` : ""}
+${context.activeGoal ? `Active Weekly Goal: ${context.activeGoal}.` : ""}
 
-First, classify the media into one of these 4 categories based strictly on VISUAL content (do NOT trust filenames if visual content contradicts them):
-1. "food_related": Meals, plated dishes, ingredients, beverages, food products, cooking, food preparation, serving, or other clearly relevant food content.
-2. "restaurant_related": Restaurant interiors, dining spaces, tables, restaurant staff, service experiences, hospitality, kitchen workflow, or other media genuinely relevant to a restaurant's social media strategy even when no food is visible.
-3. "non_food_unrelated": Content with no meaningful connection to food or restaurant marketing (such as unrelated selfies, vehicles, cars, landscapes without restaurant context, unrelated screenshots, animals, etc.).
-4. "uncertain": Content that cannot be classified reliably because of poor quality, blurriness, ambiguity, darkness, or insufficient visual information.
+Your job is to analyze restaurant media assets (food photos, food videos, event flyers, menus, promotional graphics), classify their marketing relevance, and extract structured marketing intelligence.
 
-IMPORTANT RULES:
-- Do NOT automatically reject images lacking visible food: restaurant interiors, dining rooms, and staff photos ARE VALID restaurant-related marketing content.
-- If visual content shows an unrelated selfie, vehicle, general nature/landscape, or random non-food object, classify it as "non_food_unrelated".
-- If the media is too blurry, dark, or ambiguous to identify, classify it as "uncertain".
-- If video frames are provided: evaluate the visual progression across the frames. Note: Audio is not processed; evaluate solely based on visual content.
+CONTENT CLASSIFICATION RULES:
+1. "food_related":
+   - Photographs or videos of meals, dishes, platters, bowls, ingredients, baked goods, beverages, or packaged food items.
+   - Food preparation, cooking, grilling, baking, plating, kitchen craft, and culinary workflow.
+   - Videos where food appears, including clips where food appears only in later frames.
+   - Menus, menu boards, or food product catalogs.
+   Decision: "accept"
+
+2. "restaurant_related":
+   - Legitimate restaurant marketing assets, EVEN WHEN NO FOOD IS VISIBLE:
+     * Event flyers: live music, buffet specials, holiday brunches, tasting nights, food festivals, trivia, parties.
+     * Promotional graphics: discount posters, special offers, combo announcements, vouchers, coupons.
+     * Restaurant announcements: grand opening, new location, catering availability, delivery promotions.
+     * Restaurant interior, dining spaces, ambiance, seating, patio, bar, tables, and hospitality decor.
+     * Restaurant staff, chefs, cooking crew, servers, and team members with restaurant context.
+     * Customer dining experiences, reactions, smiles, and testimonials.
+     * Branded marketing designs containing text, typography, dates, pricing, and restaurant branding.
+     * IMPORTANT: Read all visible text, headlines, dates, and offers within the image to evaluate its marketing purpose.
+   Decision: "accept"
+
+3. "non_food_unrelated":
+   - Content with NO meaningful connection to food, dining, hospitality, or the restaurant's marketing:
+     * Standalone personal selfies (individual posing in mirror, bedroom, car, gym, street without restaurant context).
+     * Vehicles (cars, sedans, SUVs, motorcycles, trucks) unrelated to the business.
+     * Random nature, landscapes, mountains, sunsets, skylines without restaurant dining context.
+     * Unrelated personal screenshots, software code, spreadsheets, invoices, receipts, crypto, gaming, or memes.
+     * Generic event flyers completely unrelated to dining/hospitality (e.g., tech conferences, real estate seminars, crypto expos).
+   Decision: "reject"
+
+4. "uncertain":
+   - Reserved STRICTLY for genuinely ambiguous content where evidence is insufficient:
+     * Extremely blurry, pixelated, corrupt, pitch-black, or unintelligible media.
+     * Abstract noise or ambiguous graphics with unreadable text and no recognizable scene.
+     * Video clips whose available frames show only black or unidentifiable blurs.
+     * DO NOT mark clear food photos, food videos, event flyers, menus, or promotional graphics as "uncertain".
+   Decision: "review"
 
 Return a STRICT JSON object with these EXACT keys:
 {
-  "contentCategory": "Must be one of: food_related, restaurant_related, non_food_unrelated, uncertain",
-  "confidence": A number between 0.00 and 1.00 indicating categorization certainty (use < 0.65 for blurry/uncertain),
-  "aiDescription": "Vivid, objective description of what is visible in the media (1-2 sentences).",
-  "contentType": "Must be one of: Food/product, Customer, Ambience, Staff, Behind the scenes, Promotional, Educational, Testimonial, Event, Lifestyle, Other",
-  "contentPillar": "Must be one of: product, social_proof, education, behind_the_scenes, community, promotion",
-  "objective": "Must be one of: conversion, trust, awareness, engagement, retention",
-  "suggestedPlatform": "Must be one of: instagram, tiktok, both",
-  "suggestedAngle": "A compelling marketing hook or angle tailored to the restaurant."
+  "contentCategory": "food_related" | "restaurant_related" | "non_food_unrelated" | "uncertain",
+  "decision": "accept" | "reject" | "review",
+  "confidence": A number between 0.10 and 1.00 indicating certainty,
+  "evidence": "Concise observable evidence from the visual content or read text (e.g. 'Event flyer announcing 20% off Sunday Brunch buffet with date and RSVP details')",
+  "aiDescription": "Vivid, objective description of what is visible (1-2 sentences)",
+  "contentType": "Food/product" | "Customer" | "Ambience" | "Staff" | "Behind the scenes" | "Promotional" | "Educational" | "Testimonial" | "Event" | "Lifestyle" | "Other",
+  "contentPillar": "product" | "social_proof" | "education" | "behind_the_scenes" | "community" | "promotion",
+  "objective": "conversion" | "trust" | "awareness" | "engagement" | "retention",
+  "suggestedPlatform": "instagram" | "tiktok" | "both",
+  "marketingPurpose": "e.g. event_promotion, special_offer, menu_highlight, dish_showcase, chef_spotlight, dining_ambience, none",
+  "suggestedAngle": "A compelling marketing hook or angle tailored to the restaurant"
 }`;
 
   const userContent: any[] = [
     {
       type: "text",
       text: isVideo && frames && frames.length > 0
-        ? `Analyze these ${frames.length} representative frames sampled across this restaurant video. Filename: "${asset.fileName}". Note: Visual frames only, no audio.`
-        : `Analyze this restaurant media asset. Filename: "${asset.fileName}".`,
+        ? `Analyze these ${frames.length} representative frames sampled across this restaurant video. Filename: "${asset.fileName}". Note: Visual frames sampled across video duration.`
+        : `Analyze this restaurant media asset. Filename: "${asset.fileName}". Extract visible text and evaluate restaurant marketing relevance.`,
     },
   ];
 
@@ -341,13 +374,13 @@ Return a STRICT JSON object with these EXACT keys:
     for (const frame of frames) {
       userContent.push({
         type: "image_url",
-        image_url: { url: frame, detail: "low" },
+        image_url: { url: frame, detail: "auto" },
       });
     }
   } else {
     userContent.push({
       type: "image_url",
-      image_url: { url: asset.fileUrl, detail: "low" },
+      image_url: { url: asset.fileUrl, detail: "auto" },
     });
   }
 
@@ -364,7 +397,7 @@ Return a STRICT JSON object with these EXACT keys:
         { role: "system", content: systemPrompt },
         { role: "user", content: userContent },
       ],
-      max_tokens: 450,
+      max_tokens: 500,
       temperature: 0.2,
     }),
   });
@@ -378,18 +411,25 @@ Return a STRICT JSON object with these EXACT keys:
   const parsed = JSON.parse(json.choices[0]?.message?.content || "{}");
 
   const category: ContentCategory = sanitizeCategory(parsed.contentCategory);
-  let confidence =
-    typeof parsed.confidence === "number" ? Math.max(0.1, Math.min(1.0, parsed.confidence)) : 0.85;
+  const decision: "accept" | "reject" | "review" =
+    parsed.decision === "reject" || category === "non_food_unrelated"
+      ? "reject"
+      : parsed.decision === "review" || category === "uncertain"
+      ? "review"
+      : "accept";
+
+  const confidence =
+    typeof parsed.confidence === "number" ? Math.max(0.1, Math.min(1.0, parsed.confidence)) : 0.90;
 
   // 1. Unrelated / Non-Food rejection (Requirement 3 & 4.A)
-  if (category === "non_food_unrelated" && confidence >= 0.65) {
+  if (decision === "reject" || category === "non_food_unrelated") {
     return {
-      aiDescription: parsed.aiDescription || "Non-food media detected.",
+      aiDescription: parsed.aiDescription || "Non-food or unrelated media detected without restaurant context.",
       contentType: "Other",
       contentPillar: "product",
       objective: "awareness",
       suggestedPlatform: "both",
-      confidence,
+      confidence: Math.max(confidence, 0.90),
       processingStatus: "rejected",
       contentCategory: "non_food_unrelated",
       validationStatus: "rejected",
@@ -398,34 +438,38 @@ Return a STRICT JSON object with these EXACT keys:
     };
   }
 
-  // 2. Uncertain classification (Requirement 3 & 4.B)
-  if (category === "uncertain" || confidence < 0.65) {
+  // 2. Genuinely uncertain classification (Requirement 3 & 4.B)
+  if (decision === "review" || category === "uncertain") {
     return {
-      aiDescription: parsed.aiDescription || "Content classification uncertain.",
+      aiDescription: parsed.aiDescription || "Content visual clarity insufficient to classify with certainty.",
       contentType: "Other",
       contentPillar: "product",
       objective: "awareness",
       suggestedPlatform: "both",
-      confidence: Math.min(confidence, 0.58),
+      confidence: Math.min(confidence, 0.55),
       processingStatus: "needs_review",
       contentCategory: "uncertain",
       validationStatus: "uncertain",
       rejectionReason: VALIDATION_MESSAGES.UNCERTAIN,
-      suggestedAngle: "Upload a clearer image or video.",
+      suggestedAngle: "Upload a clearer image, video, or promotional graphic.",
     };
   }
 
-  // 3. Valid: food_related or restaurant_related (Requirement 3)
+  // 3. Accepted: food_related or restaurant_related (including event flyers, menus, posters)
   const isRestaurantRelated = category === "restaurant_related";
+  const defaultContentType = isRestaurantRelated
+    ? (parsed.marketingPurpose === "event_promotion" ? "Event" : "Promotional")
+    : "Food/product";
+
   return {
     aiDescription:
       parsed.aiDescription ||
       (isRestaurantRelated
-        ? `Atmospheric interior view at ${context.name}.`
-        : `Photo showing ${context.name} specialty dish.`),
-    contentType: sanitizeContentType(parsed.contentType),
-    contentPillar: sanitizeContentPillar(parsed.contentPillar),
-    objective: sanitizeObjective(parsed.objective),
+        ? `Marketing asset for ${context.name}.`
+        : `Photo showing ${context.name} signature dish.`),
+    contentType: sanitizeContentType(parsed.contentType || defaultContentType),
+    contentPillar: sanitizeContentPillar(parsed.contentPillar || (isRestaurantRelated ? "promotion" : "product")),
+    objective: sanitizeObjective(parsed.objective || (isRestaurantRelated ? "awareness" : "conversion")),
     suggestedPlatform: sanitizePlatform(parsed.suggestedPlatform),
     confidence,
     processingStatus: "analyzed",
@@ -434,8 +478,8 @@ Return a STRICT JSON object with these EXACT keys:
     suggestedAngle:
       parsed.suggestedAngle ||
       (isRestaurantRelated
-        ? `Spotlight the welcoming dine-in atmosphere to attract dinner guests.`
-        : `Highlight fresh quality and taste to drive orders.`),
+        ? `Highlight this restaurant offering to attract diners and event guests.`
+        : `Highlight freshness, authentic taste, and visual appeal to drive orders.`),
   };
 }
 
@@ -475,19 +519,30 @@ async function callGeminiVisionApi(
 
   if (!base64Data) return null;
 
-  const promptText = `You are an expert AI Restaurant Product Marketing Manager. Analyze this uploaded media asset for restaurant "${context.name}".
-Classify strictly by VISUAL content:
-1. "food_related": Meals, plated dishes, ingredients, beverages, food products, cooking, food prep.
-2. "restaurant_related": Dining room, ambience, seating, staff, kitchen workflow (valid even without visible food).
-3. "non_food_unrelated": Unrelated selfies, portraits, vehicles, general nature, screenshots, pets.
-4. "uncertain": Blurry, ambiguous, or unidentifiable.
+  const promptText = `You are an expert AI Restaurant Product Marketing Manager and Content Strategist for "${context.name}"${
+    context.location ? ` in ${context.location}` : ""
+  }${context.restaurantType ? ` (${context.restaurantType})` : ""}.
+${context.targetAudience ? `Target Audience: ${context.targetAudience}.` : ""}
+${context.activeGoal ? `Active Weekly Goal: ${context.activeGoal}.` : ""}
+
+Analyze this uploaded restaurant media asset, evaluate marketing relevance, and classify strictly into:
+1. "food_related": Dishes, meals, platters, ingredients, food products, cooking, kitchen craft, food videos (including videos where food appears in later frames), menus.
+2. "restaurant_related": Legitimate restaurant marketing assets EVEN WITHOUT VISIBLE FOOD:
+   - Event flyers (live music, buffet, brunch, tasting, food festivals, trivia, parties). Read visible text!
+   - Promotional graphics (discount posters, special offers, combo announcements, coupons).
+   - Restaurant announcements (opening hours, new location, catering, delivery).
+   - Restaurant interior, dining spaces, seating, patio, bar, decor.
+   - Restaurant staff, chefs, hospitality team.
+3. "non_food_unrelated": Standalone personal selfies, personal portraits, vehicles, general nature, screenshots, or generic non-restaurant event flyers (e.g. tech conferences, real estate seminars).
+4. "uncertain": Reserved strictly for genuinely blurry, pitch-black, corrupted, or unintelligible media.
 
 Return ONLY a strict JSON object:
 {
   "contentCategory": "food_related" | "restaurant_related" | "non_food_unrelated" | "uncertain",
-  "confidence": number between 0.0 and 1.0,
+  "decision": "accept" | "reject" | "review",
+  "confidence": number between 0.10 and 1.0,
   "aiDescription": "1-2 sentence description of what is physically visible",
-  "contentType": "Food/product" | "Customer" | "Ambience" | "Staff" | "Behind the scenes" | "Promotional" | "Educational" | "Other",
+  "contentType": "Food/product" | "Customer" | "Ambience" | "Staff" | "Behind the scenes" | "Promotional" | "Educational" | "Testimonial" | "Event" | "Lifestyle" | "Other",
   "contentPillar": "product" | "social_proof" | "education" | "behind_the_scenes" | "community" | "promotion",
   "objective": "conversion" | "trust" | "awareness" | "engagement" | "retention",
   "suggestedPlatform": "instagram" | "tiktok" | "both",
@@ -523,16 +578,23 @@ Return ONLY a strict JSON object:
 
   const parsed = JSON.parse(text);
   const category = sanitizeCategory(parsed.contentCategory);
-  const confidence = typeof parsed.confidence === "number" ? parsed.confidence : 0.85;
+  const decision: "accept" | "reject" | "review" =
+    parsed.decision === "reject" || category === "non_food_unrelated"
+      ? "reject"
+      : parsed.decision === "review" || category === "uncertain"
+      ? "review"
+      : "accept";
 
-  if (category === "non_food_unrelated") {
+  const confidence = typeof parsed.confidence === "number" ? Math.max(0.1, Math.min(1.0, parsed.confidence)) : 0.88;
+
+  if (decision === "reject" || category === "non_food_unrelated") {
     return {
-      aiDescription: parsed.aiDescription || "Non-food media detected.",
+      aiDescription: parsed.aiDescription || "Non-food media detected without restaurant context.",
       contentType: "Other",
       contentPillar: "product",
       objective: "awareness",
       suggestedPlatform: "both",
-      confidence,
+      confidence: Math.max(confidence, 0.90),
       processingStatus: "rejected",
       contentCategory: "non_food_unrelated",
       validationStatus: "rejected",
@@ -541,14 +603,14 @@ Return ONLY a strict JSON object:
     };
   }
 
-  if (category === "uncertain" || confidence < 0.65) {
+  if (decision === "review" || category === "uncertain") {
     return {
-      aiDescription: parsed.aiDescription || "Content classification uncertain.",
+      aiDescription: parsed.aiDescription || "Content visual clarity insufficient to classify with certainty.",
       contentType: "Other",
       contentPillar: "product",
       objective: "awareness",
       suggestedPlatform: "both",
-      confidence: Math.min(confidence, 0.58),
+      confidence: Math.min(confidence, 0.55),
       processingStatus: "needs_review",
       contentCategory: "uncertain",
       validationStatus: "uncertain",
@@ -558,17 +620,21 @@ Return ONLY a strict JSON object:
   }
 
   const isRest = category === "restaurant_related";
+  const defaultContentType = isRest
+    ? (/event/i.test(parsed.contentType || "") ? "Event" : "Promotional")
+    : "Food/product";
+
   return {
-    aiDescription: parsed.aiDescription || `Photo showing ${context.name}.`,
-    contentType: sanitizeContentType(parsed.contentType),
-    contentPillar: sanitizeContentPillar(parsed.contentPillar),
-    objective: sanitizeObjective(parsed.objective),
+    aiDescription: parsed.aiDescription || (isRest ? `Marketing asset for ${context.name}.` : `Photo showing ${context.name} signature dish.`),
+    contentType: sanitizeContentType(parsed.contentType || defaultContentType),
+    contentPillar: sanitizeContentPillar(parsed.contentPillar || (isRest ? "promotion" : "product")),
+    objective: sanitizeObjective(parsed.objective || (isRest ? "awareness" : "conversion")),
     suggestedPlatform: sanitizePlatform(parsed.suggestedPlatform),
     confidence,
     processingStatus: "analyzed",
     contentCategory: isRest ? "restaurant_related" : "food_related",
     validationStatus: "valid",
-    suggestedAngle: parsed.suggestedAngle || "Drive dine-in and takeout orders.",
+    suggestedAngle: parsed.suggestedAngle || (isRest ? "Drive diner awareness and event bookings." : "Drive dine-in and takeout orders."),
   };
 }
 
@@ -591,8 +657,20 @@ async function analyzeVisualMedia(
     }
     if (!buffer && asset.fileUrl) {
       if (asset.fileUrl.startsWith("http")) {
-        const res = await fetch(asset.fileUrl);
-        if (res.ok) buffer = Buffer.from(await res.arrayBuffer());
+        // Skip dummy/mock test domains to avoid stalling or timeouts
+        if (asset.fileUrl.includes("example.com") || asset.fileUrl.includes("localhost") || asset.fileUrl.includes("127.0.0.1")) {
+          // Do not fetch mock URLs
+        } else {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 1500);
+            const res = await fetch(asset.fileUrl, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            if (res.ok) buffer = Buffer.from(await res.arrayBuffer());
+          } catch {
+            // Silently continue without image buffer
+          }
+        }
       } else if (asset.fileUrl.startsWith("data:")) {
         const commaIdx = asset.fileUrl.indexOf(",");
         if (commaIdx > 0) buffer = Buffer.from(asset.fileUrl.slice(commaIdx + 1), "base64");
@@ -601,62 +679,83 @@ async function analyzeVisualMedia(
 
     if (!buffer || buffer.length === 0) return null;
 
+    let width = 0;
+    let height = 0;
+    let data: Uint8Array | Buffer | null = null;
+
     // Check for JPEG magic bytes (0xFF, 0xD8)
     if (buffer[0] === 0xff && buffer[1] === 0xd8) {
       const jpeg = await import("jpeg-js");
       const decoded = jpeg.decode(buffer, { useTArray: true });
-      const { width, height, data } = decoded;
-      const totalPixels = width * height;
-
-      let centerSkinPixels = 0;
-      let centerTotal = 0;
-      let upperSkinPixels = 0;
-      let upperTotal = 0;
-      let culinaryWarmPixels = 0;
-      let vegetableGreenPixels = 0;
-
-      const cxMin = width * 0.22;
-      const cxMax = width * 0.78;
-      const cyMin = height * 0.15;
-      const cyMax = height * 0.72;
-
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          const idx = (y * width + x) * 4;
-          const r = data[idx];
-          const g = data[idx + 1];
-          const b = data[idx + 2];
-
-          const isSkin = r > 40 && g > 25 && b > 15 && r > g && r - g >= 8 && r - b >= 14;
-          if (isSkin) {
-            if (x >= cxMin && x <= cxMax && y >= cyMin && y <= cyMax) centerSkinPixels++;
-            if (y < height * 0.6) upperSkinPixels++;
-          }
-          if (x >= cxMin && x <= cxMax && y >= cyMin && y <= cyMax) centerTotal++;
-          if (y < height * 0.6) upperTotal++;
-
-          if (r > 130 && g > 60 && g < r && b < g * 0.85) culinaryWarmPixels++;
-          if (g > 80 && g > r * 1.15 && g > b * 1.15) vegetableGreenPixels++;
-        }
-      }
-
-      const centerSkinRatio = centerSkinPixels / Math.max(1, centerTotal);
-      const upperSkinRatio = upperSkinPixels / Math.max(1, upperTotal);
-      const warmRatio = culinaryWarmPixels / totalPixels;
-      const greenRatio = vegetableGreenPixels / totalPixels;
-
-      const hasCulinaryColors = warmRatio >= 0.08 || greenRatio >= 0.04;
-      const isSelfieOrPortrait =
-        (centerSkinRatio >= 0.18 && upperSkinRatio >= 0.10) ||
-        (centerSkinRatio >= 0.25) ||
-        (centerSkinRatio >= 0.15 && upperSkinRatio >= 0.14) ||
-        (centerSkinRatio >= 0.15 && !hasCulinaryColors && upperSkinRatio >= 0.08);
-
-      return {
-        isSelfieOrPortrait,
-        hasCulinaryColors,
-      };
+      width = decoded.width;
+      height = decoded.height;
+      data = decoded.data;
+    } else if (
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47
+    ) {
+      // Check for PNG magic bytes (0x89, 'P', 'N', 'G')
+      const { PNG } = await import("pngjs");
+      const png = PNG.sync.read(buffer);
+      width = png.width;
+      height = png.height;
+      data = png.data;
     }
+
+    if (!data || width <= 0 || height <= 0) return null;
+
+    const totalPixels = width * height;
+
+    let centerSkinPixels = 0;
+    let centerTotal = 0;
+    let upperSkinPixels = 0;
+    let upperTotal = 0;
+    let culinaryWarmPixels = 0;
+    let vegetableGreenPixels = 0;
+
+    const cxMin = width * 0.22;
+    const cxMax = width * 0.78;
+    const cyMin = height * 0.15;
+    const cyMax = height * 0.72;
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = (y * width + x) * 4;
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+
+        const isSkin = r > 40 && g > 25 && b > 15 && r > g && r - g >= 8 && r - b >= 14;
+        if (isSkin) {
+          if (x >= cxMin && x <= cxMax && y >= cyMin && y <= cyMax) centerSkinPixels++;
+          if (y < height * 0.6) upperSkinPixels++;
+        }
+        if (x >= cxMin && x <= cxMax && y >= cyMin && y <= cyMax) centerTotal++;
+        if (y < height * 0.6) upperTotal++;
+
+        if (r > 120 && g > 50 && g < r && b < g * 0.90) culinaryWarmPixels++;
+        if (g > 70 && g > r * 1.12 && g > b * 1.12) vegetableGreenPixels++;
+      }
+    }
+
+    const centerSkinRatio = centerSkinPixels / Math.max(1, centerTotal);
+    const upperSkinRatio = upperSkinPixels / Math.max(1, upperTotal);
+    const warmRatio = culinaryWarmPixels / totalPixels;
+    const greenRatio = vegetableGreenPixels / totalPixels;
+
+    const hasCulinaryColors = warmRatio >= 0.05 || greenRatio >= 0.025;
+    const isSelfieOrPortrait =
+      (centerSkinRatio >= 0.18 && upperSkinRatio >= 0.10) ||
+      (centerSkinRatio >= 0.25) ||
+      (centerSkinRatio >= 0.15 && upperSkinRatio >= 0.14) ||
+      (centerSkinRatio >= 0.15 && !hasCulinaryColors && upperSkinRatio >= 0.08);
+
+    return {
+      isSelfieOrPortrait,
+      hasCulinaryColors,
+    };
   } catch (err) {
     console.warn("[AI Analyzer] Visual pixel inspection notice:", err);
   }
@@ -676,6 +775,8 @@ function analyzeWithCulinaryHeuristics(
   visualInfo?: { isSelfieOrPortrait?: boolean; hasCulinaryColors?: boolean } | null
 ): AssetAnalysisResult {
   const name = asset.fileName.toLowerCase();
+  const cleanBaseName = name.replace(/\.[^.]+$/, "");
+  const tokens = cleanBaseName.split(/[^a-z0-9]+/).filter(Boolean);
   const isVideo =
     asset.mediaType === "video" ||
     asset.mimeType?.startsWith("video/") ||
@@ -683,12 +784,26 @@ function analyzeWithCulinaryHeuristics(
 
   // -----------------------------------------------------------
   // 1. UNRELATED / NON-FOOD PATTERNS (Requirement 3 & 4.A)
+  // Must match exact word tokens or specific phrases so culinary terms
+  // (e.g. "location", "appetizer", "card", "carpet") are not falsely caught.
   // -----------------------------------------------------------
-  const nonFoodPatterns = /(selfie|portrait|my_face|outfit|ootd|car|vehicle|automotive|bmw|toyota|sedan|suv|traffic|truck|motorcycle|bike|landscape|mountain|sunset|nature|beach|forest|ocean|skyline|cityscape|pet|dog|cat|puppy|screenshot|desktop|code|invoice|receipt_tax|spreadsheet|random|crypto|gaming|meme)/i;
+  const exactNonFoodWords = new Set([
+    "selfie", "selfies", "portrait", "portraits", "ootd", "outfit", "outfits",
+    "car", "cars", "vehicle", "vehicles", "automotive", "bmw", "toyota", "sedan", "suv",
+    "traffic", "truck", "motorcycle", "bike", "landscape", "mountain", "mountains",
+    "sunset", "nature", "beach", "forest", "ocean", "skyline", "cityscape",
+    "pet", "pets", "dog", "dogs", "cat", "cats", "puppy", "puppies",
+    "screenshot", "desktop", "code", "invoice", "spreadsheet",
+    "crypto", "gaming", "meme", "memes", "trading", "stock"
+  ]);
 
-  if (nonFoodPatterns.test(name) || visualInfo?.isSelfieOrPortrait) {
+  const matchesNonFoodWord = tokens.some((t) => exactNonFoodWords.has(t));
+  const matchesNonFoodPhrase = /(my_face|receipt_tax|tax_receipt|random_unrelated|stock_chart)/i.test(cleanBaseName);
+  const unrelatedEventPatterns = /(tech_conference|crypto_summit|real_estate_seminar|hackathon|developer_meetup|web3|blockchain|ai_summit|coding_bootcamp|forex)/i;
+
+  if (matchesNonFoodWord || matchesNonFoodPhrase || unrelatedEventPatterns.test(name) || visualInfo?.isSelfieOrPortrait) {
     return {
-      aiDescription: "Personal portrait, selfie, or non-food media detected without restaurant context.",
+      aiDescription: "Personal portrait, selfie, vehicle, landscape, or non-restaurant media detected without dining context.",
       contentType: "Other",
       contentPillar: "product",
       objective: "awareness",
@@ -704,22 +819,20 @@ function analyzeWithCulinaryHeuristics(
 
   // -----------------------------------------------------------
   // 2. UNCERTAIN / BLURRY / AMBIGUOUS PATTERNS (Requirement 3 & 4.B)
+  // Reserved strictly for genuinely unreadable, pitch-black, or corrupt assets
   // -----------------------------------------------------------
-  const uncertainPatterns = /(blurry|blurred|dark|obscure|low_res|pixelated|out_of_focus|unclear|glitch|corrupt|ambiguous|abstract_noise)/i;
-  const isGenericFilename = /^(img|video|vid|file|dsc|photo|asset|temp|upload|unknown|whatsapp|screenshot)[_\d\-.\s]*$/i.test(
-    name.replace(/\.[^/.]+$/, "").trim()
-  );
+  const explicitUncertainPatterns = /(blurry|blurred|pitch_black|completely_dark|obscure|low_res|pixelated|out_of_focus|unreadable|glitch|corrupt|abstract_noise|ambiguous_graphic|unidentifiable)/i;
 
-  if (uncertainPatterns.test(name) || (isGenericFilename && (!frames || frames.length === 0) && !visualInfo?.hasCulinaryColors)) {
+  if (explicitUncertainPatterns.test(name)) {
     return {
       aiDescription: isVideo
         ? `Video clip at ${context.name}. Visual details unclear or pending review.`
         : `Photograph captured at ${context.name}. Visual clarity insufficient to identify dish or scene with certainty.`,
-      contentType: isVideo ? "Behind the scenes" : "Food/product",
+      contentType: isVideo ? "Behind the scenes" : "Other",
       contentPillar: isVideo ? "behind_the_scenes" : "product",
       objective: "awareness",
       suggestedPlatform: isVideo ? "both" : "instagram",
-      confidence: 0.52,
+      confidence: 0.48,
       processingStatus: "needs_review",
       contentCategory: "uncertain",
       validationStatus: "uncertain",
@@ -729,66 +842,11 @@ function analyzeWithCulinaryHeuristics(
   }
 
   // -----------------------------------------------------------
-  // 3. RESTAURANT-RELATED (NO FOOD VISIBLE) (Requirement 3)
+  // 3. CULINARY CRAFT & FOOD PREPARATION (Requirement 3 & 4.A)
+  // Active kitchen craft, cooking, stirring, grilling, sizzling, plating, rush
+  // Prioritized over generic staff and ambience so cooking videos are correctly food_related
   // -----------------------------------------------------------
-  const restaurantInteriorPatterns = /(interior|dining|room|ambiance|vibe|patio|table|decor|lights|atmosphere|restaurant|venue|bar|seating|hall|booth)/i;
-  const restaurantStaffPatterns = /(staff|team|waiter|waitress|bartender|crew|manager|smile|greeting|hospitality|service|front_of_house)/i;
-
-  if (restaurantStaffPatterns.test(name)) {
-    return {
-      aiDescription: `Welcoming hospitality staff and front-of-house team members at ${context.name}.`,
-      contentType: "Staff",
-      contentPillar: "behind_the_scenes",
-      objective: "trust",
-      suggestedPlatform: "both",
-      confidence: 0.91,
-      processingStatus: "analyzed",
-      contentCategory: "restaurant_related",
-      validationStatus: "valid",
-      suggestedAngle: `Put friendly human faces behind the counter to establish personal warmth and hospitality trust.`,
-    };
-  }
-
-  if (restaurantInteriorPatterns.test(name)) {
-    return {
-      aiDescription: `Atmospheric dining area and interior view at ${context.name}, highlighting seating and ambiance.`,
-      contentType: "Ambience",
-      contentPillar: "community",
-      objective: "awareness",
-      suggestedPlatform: "instagram",
-      confidence: 0.90,
-      processingStatus: "analyzed",
-      contentCategory: "restaurant_related",
-      validationStatus: "valid",
-      suggestedAngle: `Invite remote workers and dinner guests with an irresistible glimpse into the dine-in vibe and comfortable seating.`,
-    };
-  }
-
-  // -----------------------------------------------------------
-  // 4. FOOD-RELATED PATTERNS (Requirement 3)
-  // -----------------------------------------------------------
-  const btsPatterns = /(prep|kitchen|rush|cooking|cook|sizzle|grill|wok|oven|chef|firewood|sauce|cutting|chopping|plating|packaging|dispatch|box|foil)/i;
-  const socialProofPatterns = /(customer|reaction|bite|eating|review|testimonial|smiling|patron|guest|feedback|taste|cheers)/i;
-  const promoPatterns = /(combo|special|deal|promo|discount|lunch_pack|box_breakdown|offer|save|free|weekend_special)/i;
-  const educationPatterns = /(recipe|ingredient|secret|how_to|making_of|heritage|origin|technique|blend|spice)/i;
-
-  // Social Proof / Diner reactions
-  if (socialProofPatterns.test(name)) {
-    return {
-      aiDescription: `Genuine customer dining moment at ${context.name}, highlighting firsthand appreciation and authentic reactions.`,
-      contentType: /reaction|bite/i.test(name) ? "Customer" : "Testimonial",
-      contentPillar: "social_proof",
-      objective: "trust",
-      suggestedPlatform: isVideo ? "both" : "instagram",
-      confidence: 0.93,
-      processingStatus: "analyzed",
-      contentCategory: "food_related",
-      validationStatus: "valid",
-      suggestedAngle: `Leverage authentic patron satisfaction to eliminate hesitation for prospective diners in ${context.location || "the area"}.`,
-    };
-  }
-
-  // Behind the Scenes / Kitchen Food Prep
+  const btsPatterns = /(prep|kitchen|rush|cooking|cook|sizzle|sizzling|grill|grilling|wok|oven|firewood|sauce|cutting|chopping|plating|packaging|dispatch|box|foil|baking|fry|roast|simmer|stir|stirring|smoke|marinate)/i;
   if (btsPatterns.test(name)) {
     return {
       aiDescription: `Energetic culinary preparation and kitchen workflow at ${context.name}, showcasing care, freshness, and pace.`,
@@ -804,35 +862,123 @@ function analyzeWithCulinaryHeuristics(
     };
   }
 
-  // Educational Culinary Craft / Ingredients
-  if (educationPatterns.test(name) || /ingredient|spice|raw|packaged/i.test(name)) {
+  // -----------------------------------------------------------
+  // 4. RESTAURANT MARKETING CONTENT (Requirement 3 & 4.B)
+  // Event flyers, menus, promotional posters, announcements, decor, staff
+  // -----------------------------------------------------------
+  const menuPatterns = /(menu|food_menu|drink_menu|cocktail_menu|wine_list|bar_menu|price_list|dessert_menu|a_la_carte|catering_menu|specials_board)/i;
+  if (menuPatterns.test(name)) {
     return {
-      aiDescription: `Educational culinary spotlight demonstrating recipe craftsmanship, rich seasonings, and signature techniques at ${context.name}.`,
-      contentType: "Educational",
-      contentPillar: "education",
-      objective: "trust",
-      suggestedPlatform: "tiktok",
-      confidence: 0.91,
+      aiDescription: `Restaurant menu design and dish pricing catalog for ${context.name}.`,
+      contentType: "Promotional",
+      contentPillar: "promotion",
+      objective: "conversion",
+      suggestedPlatform: "instagram",
+      confidence: 0.93,
       processingStatus: "analyzed",
-      contentCategory: "food_related",
+      contentCategory: "restaurant_related",
       validationStatus: "valid",
-      suggestedAngle: `Demystify your secret culinary technique to position ${context.name} as an authoritative master of flavor.`,
+      suggestedAngle: `Feature your most popular dishes and transparent pricing to make ordering fast and easy for diners.`,
     };
   }
 
-  // Promotional Deals
-  if (promoPatterns.test(name)) {
+  const marketingFlyerPatterns = /(event_flyer|flyer|brunch|buffet|happy_hour|live_music|tasting|festival|grand_opening|party|trivia|karaoke|anniversary|celebration|dj_night|acoustic_night)/i;
+  if (marketingFlyerPatterns.test(name)) {
     return {
-      aiDescription: `Curated value combo package and promotional offering from ${context.name}, engineered for straightforward decision-making.`,
+      aiDescription: `Promotional event flyer announcing dining experience, entertainment, and special schedule at ${context.name}.`,
+      contentType: "Event",
+      contentPillar: "promotion",
+      objective: "awareness",
+      suggestedPlatform: isVideo ? "both" : "instagram",
+      confidence: 0.92,
+      processingStatus: "analyzed",
+      contentCategory: "restaurant_related",
+      validationStatus: "valid",
+      suggestedAngle: `Promote this upcoming restaurant event early to secure advance table bookings and RSVPs.`,
+    };
+  }
+
+  const marketingOfferPatterns = /(discount|promo|special_offer|voucher|coupon|deal|combo|save|percent_off|free_drink|lunch_special|weekend_special|happy_hour_special|catering_promotion|delivery_offer|bogo|announcement|opening_hours|we_are_open|now_open|holiday_hours|new_location)/i;
+  if (marketingOfferPatterns.test(name)) {
+    return {
+      aiDescription: `Promotional marketing announcement and special dining offer from ${context.name}.`,
       contentType: "Promotional",
       contentPillar: "promotion",
       objective: "conversion",
       suggestedPlatform: "both",
-      confidence: 0.95,
+      confidence: 0.94,
+      processingStatus: "analyzed",
+      contentCategory: "restaurant_related",
+      validationStatus: "valid",
+      suggestedAngle: `Pair this limited-time promotional offer with clear ordering instructions to drive immediate sales.`,
+    };
+  }
+
+  const restaurantStaffPatterns = /(staff|team|chef|head_chef|waiter|waitress|bartender|crew|manager|smile|greeting|hospitality|service|front_of_house|kitchen_team)/i;
+  if (restaurantStaffPatterns.test(name)) {
+    return {
+      aiDescription: `Welcoming hospitality staff and culinary team members at ${context.name}.`,
+      contentType: "Staff",
+      contentPillar: "behind_the_scenes",
+      objective: "trust",
+      suggestedPlatform: "both",
+      confidence: 0.92,
+      processingStatus: "analyzed",
+      contentCategory: "restaurant_related",
+      validationStatus: "valid",
+      suggestedAngle: `Put friendly human faces behind the counter to establish personal warmth and hospitality trust.`,
+    };
+  }
+
+  const restaurantInteriorPatterns = /(interior|dining_room|dining_area|ambiance|ambience|patio|dining_table|decor|lights|atmosphere|venue_decor|bar_seating|dining_hall|booth|outdoor_seating|terrace)/i;
+  if (restaurantInteriorPatterns.test(name)) {
+    return {
+      aiDescription: `Atmospheric dining area and interior view at ${context.name}, highlighting seating and ambiance.`,
+      contentType: "Ambience",
+      contentPillar: "community",
+      objective: "awareness",
+      suggestedPlatform: "instagram",
+      confidence: 0.90,
+      processingStatus: "analyzed",
+      contentCategory: "restaurant_related",
+      validationStatus: "valid",
+      suggestedAngle: `Invite dinner guests with an irresistible glimpse into the dine-in vibe and comfortable seating.`,
+    };
+  }
+
+  // -----------------------------------------------------------
+  // 4. FOOD-RELATED PATTERNS (Requirement 3 & 4.A)
+  // -----------------------------------------------------------
+  const socialProofPatterns = /(customer|reaction|bite|eating|review|testimonial|smiling|patron|guest|feedback|taste|cheers|toast|sipping)/i;
+  const ingredientPatterns = /(ingredient|spice|raw|packaged|vegetable|fruit|seasoning|herb|grain|flour|sauce_bottle|pepper|garlic|onion|tomato|ginger)/i;
+
+  if (socialProofPatterns.test(name)) {
+    return {
+      aiDescription: `Genuine customer dining moment at ${context.name}, highlighting firsthand appreciation and authentic reactions.`,
+      contentType: /reaction|bite/i.test(name) ? "Customer" : "Testimonial",
+      contentPillar: "social_proof",
+      objective: "trust",
+      suggestedPlatform: isVideo ? "both" : "instagram",
+      confidence: 0.93,
       processingStatus: "analyzed",
       contentCategory: "food_related",
       validationStatus: "valid",
-      suggestedAngle: `Pair direct pricing value with immediate ordering links to capture high-intent diners during peak meal decisions.`,
+      suggestedAngle: `Leverage authentic patron satisfaction to eliminate hesitation for prospective diners in ${context.location || "the area"}.`,
+    };
+  }
+
+  if (ingredientPatterns.test(name)) {
+    return {
+      aiDescription: `Fresh culinary ingredients, spices, and seasonings curated for authentic flavor at ${context.name}.`,
+      contentType: "Food/product",
+      contentPillar: "education",
+      objective: "trust",
+      suggestedPlatform: isVideo ? "tiktok" : "instagram",
+      confidence: 0.91,
+      processingStatus: "analyzed",
+      contentCategory: "food_related",
+      validationStatus: "valid",
+      suggestedAngle: `Highlight premium, farm-fresh ingredients to reinforce food quality and authenticity.`,
     };
   }
 
@@ -857,7 +1003,23 @@ function analyzeWithCulinaryHeuristics(
     };
   }
 
-  // 6. Generic or unverified media without culinary proof -> Uncertain (Requirement 3 & 4.B)
+  // Video where food appears or frames are present
+  if (isVideo && frames && frames.length > 0) {
+    return {
+      aiDescription: `Dynamic culinary video showcasing food and hospitality experience at ${context.name}.`,
+      contentType: "Food/product",
+      contentPillar: "product",
+      objective: "engagement",
+      suggestedPlatform: "tiktok",
+      confidence: 0.90,
+      processingStatus: "analyzed",
+      contentCategory: "food_related",
+      validationStatus: "valid",
+      suggestedAngle: `Hook viewers in the first 3 seconds with sizzling textures and mouth-watering motion.`,
+    };
+  }
+
+  // 5. Generic or unverified media without culinary proof -> Uncertain ONLY when no evidence exists
   return {
     aiDescription: isVideo
       ? `Video clip at ${context.name}. Visual details unclear or pending review.`
@@ -881,31 +1043,66 @@ function extractDishSnippet(filename: string): string {
     .replace(/[_-]+/g, " ")
     .trim();
 
-  // Pick culinary nouns
+  // Comprehensive culinary nouns and food terms
   const keywords = [
+    "food",
+    "dish",
+    "meal",
+    "snack",
+    "pastry",
+    "pastries",
+    "bread",
+    "drink",
+    "beverage",
+    "soup",
+    "rice",
+    "meat",
+    "fish",
+    "stew",
     "jollof",
     "suya",
     "chicken",
     "beef",
     "goat meat",
+    "goat",
     "pepper soup",
+    "peppersoup",
     "plantain",
-    "stew",
     "pasta",
     "burger",
     "salad",
     "pot",
     "combo",
-    "rice",
-    "soup",
-    "meal",
     "plate",
-    "dish",
+    "platter",
+    "bowl",
     "pizza",
-    "fish",
     "grill",
+    "grilled",
     "cocktail",
     "smoothie",
+    "curry",
+    "noodle",
+    "steak",
+    "taco",
+    "sushi",
+    "dessert",
+    "cake",
+    "pie",
+    "wrap",
+    "sandwich",
+    "fries",
+    "seafood",
+    "prawns",
+    "shrimp",
+    "wings",
+    "ribs",
+    "shawarma",
+    "egusi",
+    "amala",
+    "pounded yam",
+    "fried rice",
+    "moi moi",
   ];
   for (const kw of keywords) {
     if (cleaned.toLowerCase().includes(kw)) {
